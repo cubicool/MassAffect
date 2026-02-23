@@ -1,0 +1,17 @@
+[Unit]
+Description=Massaffect Monitoring Agent
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/massaffect-agent
+Environment=MASSAFFECT_URL=https://yourdomain.com/monitor/system
+Environment=MASSAFFECT_SECRET=supersecret
+Environment=MASSAFFECT_INTERVAL=15
+ExecStart=/usr/bin/python3 /opt/massaffect-agent/agent.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
