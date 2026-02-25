@@ -71,15 +71,41 @@ class RawParser:
 	def parse(self, line: str) -> dict:
 		return {"raw": line}
 
+# NGINX_COMBINED_RE = re.compile(
+# 	r'"(?P<remote_addr>\S+) '	   # IP
+# 	r'\S+ \S+ '					 # ignore ident/user
+# 	r'\[(?P<time_local>[^\]]+)\] '  # time
+# 	r'"(?P<request>[^"]*)" '		# request line
+# 	r'(?P<status>\d{3}) '		   # status
+# 	r'(?P<body_bytes_sent>\S+) '	# bytes
+# 	r'"(?P<http_referer>[^"]*)" '   # referer
+# 	r'"(?P<http_user_agent>[^"]*)"' # user agent
+# )
+
+# NGINX_COMBINED_RE = re.compile(
+# 	r'(?P<remote_addr>\S+) '
+# 	r'\S+ \S+ '
+# 	r'\[(?P<time_local>[^\]]+)\] '
+# 	r'"(?P<request>[^"]*)" '
+# 	r'(?P<status>\d{3}) '
+# 	r'(?P<body_bytes_sent>\S+) '
+# 	r'"(?P<http_referer>[^"]*)" '
+# 	r'"(?P<http_user_agent>[^"]*)"'
+# 	r'(?:\s+.*)?$'
+# )
+
 NGINX_COMBINED_RE = re.compile(
-	r'"(?P<remote_addr>\S+) '       # IP
-	r'\S+ \S+ '                     # ignore ident/user
-	r'\[(?P<time_local>[^\]]+)\] '  # time
-	r'"(?P<request>[^"]*)" '        # request line
-	r'(?P<status>\d{3}) '           # status
-	r'(?P<body_bytes_sent>\S+) '    # bytes
-	r'"(?P<http_referer>[^"]*)" '   # referer
-	r'"(?P<http_user_agent>[^"]*)"' # user agent
+	r'^"?'
+	r'(?P<remote_addr>\S+) '
+	r'\S+ \S+ '
+	r'\[(?P<time_local>[^\]]+)\] '
+	r'"(?P<request>[^"]*)" '
+	r'(?P<status>\d{3}) '
+	r'(?P<body_bytes_sent>\S+) '
+	r'"(?P<http_referer>[^"]*)" '
+	r'"(?P<http_user_agent>[^"]*)"'
+	r'(?:\s+.*)?'
+	r'"?$'
 )
 
 class NginxParser:
@@ -118,9 +144,29 @@ class LogCollector(BaseCollector):
 		]
 
 		self.parser = parser or RawParser()
-		self.state = LogStateStore(Path(state_file or ".massaffect_logstate.json"))
+		self.state = LogStateStore(Path(state_file or ".ma_logstate.json"))
 
 	def collect(self):
+		for pattern in self.patterns:
+			base = Path("/")
+
+			for path in base.glob(pattern.lstrip("/")):
+				cursor = LogFileCursor(path, self.state)
+
+				for line in cursor.read_new():
+					parsed = self.parser.parse(line)
+
+					if not parsed:
+						continue
+
+					yield {
+						"source": str(path),
+						**parsed,
+					}
+
+		self.state.save()
+
+	def collect_old(self):
 		events = []
 
 		for pattern in self.patterns:
@@ -140,8 +186,7 @@ class LogCollector(BaseCollector):
 		self.state.save()
 
 		return {
-			"collector": self.name,
 			"events": events,
 		}
 
-cli_run(LogCollector, __name__)
+# cli_run(LogCollector, __name__)

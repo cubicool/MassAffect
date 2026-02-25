@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Iterable, Dict, Any
 
 import sys
 import json
@@ -7,8 +8,12 @@ class BaseCollector(ABC):
 	name = "base"
 	autoload = False
 
+	# @abstractmethod
+	# def collect(self) -> dict:
+	# 	pass
+
 	@abstractmethod
-	def collect(self) -> dict:
+	def collect(self) -> Iterable[Dict[str, Any]]:
 		pass
 
 def _coerce(value: str):

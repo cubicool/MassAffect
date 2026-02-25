@@ -4,8 +4,11 @@ import signal
 import logging
 import pkgutil
 import importlib
+import json
+import time
 
-from transport import Transport
+from transport import Transport, DebugTransport
+from dispatch import Dispatcher
 from config import INTERVAL, SOCKET_NAME
 
 logging.basicConfig(
@@ -57,23 +60,46 @@ def create_collectors():
 class Agent:
 	def __init__(self):
 		self.collectors = create_collectors()
-		self.transport = Transport()
-		self.running = True
+		# self.transport = Transport()
+		self.transport = DebugTransport()
+		self.dispatcher = Dispatcher(self.transport, INTERVAL)
 		self.server = None
 
-	# Used with `asyncio.create_task` as a "server" that listens for incoming data on a socket
-	# and immediately forwards it to the transport layer.
+		self._running = True
+
 	async def handle_socket(self, reader, writer):
 		try:
 			data = await reader.read(4096)
 
-			if data:
-				message = data.decode().strip()
+			if not data:
+				return
 
-				logging.info(f"Socket received: {message}")
+			try:
+				payload = json.loads(data.decode())
 
-				# TODO: later -> parse JSON and forward to transport
-				# await self.transport.send(parsed_payload)
+			except json.JSONDecodeError:
+				logging.warning("Invalid JSON received")
+
+				return
+
+			# Normalize to list
+			if not isinstance(payload, list):
+				payload = [payload]
+
+			for item in payload:
+				if not isinstance(item, dict):
+					logging.warning("Non-object JSON received")
+
+					continue
+
+				if "collector" not in item:
+					logging.warning("Missing 'collector' field")
+
+					continue
+
+				await self.dispatcher.enqueue(item)
+
+			logging.info("Socket payload accepted")
 
 		except Exception as e:
 			logging.warning(f"Socket error: {e}")
@@ -83,19 +109,58 @@ class Agent:
 
 			await writer.wait_closed()
 
-	# Used with `asyncio.create_task` as the "main logic" for running collectors.
+	async def handle_socket_old(self, reader, writer):
+		"""
+		Handles incoming UNIX socket messages and enqueues them.
+		"""
+
+		try:
+			data = await reader.read(4096)
+
+			if data:
+				message = data.decode().strip()
+
+				logging.info(f"Socket received: {message}")
+
+				# Later: parse/validate JSON before enqueue
+				await self.dispatcher.enqueue(message)
+
+		except Exception as e:
+			logging.warning(f"Socket error: {e}")
+
+		finally:
+			writer.close()
+
+			await writer.wait_closed()
+
 	async def handle_collector(self):
-		while self.running:
+		"""
+		Periodically runs collectors and enqueues their payloads.
+		"""
+
+		def _build_event(collector_name, metrics):
+			return {
+				"collector": collector_name,
+				"ts": int(time.time()),
+				"metrics": metrics,
+			}
+
+		while self._running:
 			for c in self.collectors:
 				try:
-					payload = c.collect()
+					# payload = _build_event(c.name, c.collect())
 
-					# await self.transport.send(payload)
+					# await self.dispatcher.enqueue(payload)
 
-					logging.info(f"{c}: sent metrics successfully")
+					for metrics in c.collect():
+						payload = _build_event(c.name, metrics)
+
+						await self.dispatcher.enqueue(payload)
+
+					logging.info(f"{c}: queued metrics successfully")
 
 				except Exception as e:
-					logging.warning(f"{c}: send failed: {e}")
+					logging.warning(f"{c}: collect failed: {e}")
 
 			await asyncio.sleep(INTERVAL)
 
@@ -113,9 +178,14 @@ class Agent:
 
 		collector_task = asyncio.create_task(self.handle_collector())
 		server_task = asyncio.create_task(self.server.serve_forever())
+		dispatcher_task = asyncio.create_task(self.dispatcher.run())
 
 		try:
-			await asyncio.gather(collector_task, server_task)
+			await asyncio.gather(
+				collector_task,
+				server_task,
+				dispatcher_task
+			)
 
 		except asyncio.CancelledError:
 			pass
@@ -125,12 +195,21 @@ class Agent:
 
 			server_task.cancel()
 			collector_task.cancel()
+			dispatcher_task.cancel()
 
-			await asyncio.gather(server_task, collector_task, return_exceptions=True)
+			await asyncio.gather(
+				server_task,
+				collector_task,
+				dispatcher_task,
+				return_exceptions=True,
+			)
 
-			self.server.close()
+			if self.server:
+				self.server.close()
 
-			await self.server.wait_closed()
+				await self.server.wait_closed()
+
+			await self.dispatcher.close()
 			await self.transport.close()
 
 			logging.info("Agent stopped cleanly")
@@ -138,7 +217,7 @@ class Agent:
 	def stop(self):
 		logging.info("Agent shutdown")
 
-		self.running = False
+		self._running = False
 
 		if self.server:
 			self.server.close()
