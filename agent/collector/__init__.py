@@ -5,6 +5,7 @@ import json
 
 class BaseCollector(ABC):
 	name = "base"
+	autoload = False
 
 	@abstractmethod
 	def collect(self) -> dict:

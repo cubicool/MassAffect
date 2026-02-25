@@ -1,3 +1,8 @@
+# TODO
+
+- [ ] Remove need to import parsers in `config.py`
+- [ ] Add a "name" field to non-autoload collectors
+
 # systemd Setup
 
 Almost all of these commands will require root/sudo access.

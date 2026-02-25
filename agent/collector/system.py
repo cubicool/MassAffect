@@ -7,6 +7,7 @@ import time
 
 class SystemCollector(BaseCollector):
 	name = "system"
+	autoload = True
 
 	def collect(self):
 		return {

@@ -170,7 +170,7 @@ register_shutdown_function(function () use ($__ma_start_time, $__ma_start_ru, $_
 
         'wp_version'     => get_bloginfo('version'),
         'theme'          => $theme,
-        'plugins'        => $active_plugins,
+        // 'plugins'        => $active_plugins,
     ];
 
     // TODO: Decide whether to use massaffect_send()!

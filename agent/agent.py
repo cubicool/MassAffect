@@ -13,7 +13,7 @@ logging.basicConfig(
 	format="%(asctime)s %(levelname)s %(message)s",
 )
 
-def load_collectors():
+def discover_collectors():
 	import collector
 
 	collectors = []
@@ -27,13 +27,36 @@ def load_collectors():
 				and issubclass(obj, collector.BaseCollector)
 				and obj is not collector.BaseCollector
 			):
-				collectors.append(obj())
+				collectors.append(obj)
 
 	return collectors
 
+def create_collectors():
+	import config
+
+	instances = []
+	classes = discover_collectors()
+	class_map = {cls.__name__: cls for cls in classes}
+
+	# 1) autoload defaults
+	for cls in classes:
+		if getattr(cls, "autoload", False):
+			instances.append(cls())
+
+	# 2) configured ones
+	for entry in getattr(config, "COLLECTORS", []):
+		cls = class_map.get(entry["type"])
+
+		if not cls:
+			raise ValueError(f"Unknown collector: {entry['type']}")
+
+		instances.append(cls(**entry.get("config", {})))
+
+	return instances
+
 class Agent:
 	def __init__(self):
-		self.collectors = load_collectors()
+		self.collectors = create_collectors()
 		self.transport = Transport()
 		self.running = True
 		self.server = None
