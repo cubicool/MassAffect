@@ -135,5 +135,23 @@ export default function monitorRoutes(redis) {
 		`);
 	});
 
+	router.get("/json/:vps/:collector", async (req, res) => {
+		const { vps, collector } = req.params;
+		const { source } = req.query;
+
+		const key = `ma:vps:${vps}:${collector}:events`;
+		const items = await redis.lRange(key, 0, -1);
+
+		let parsed = items.map(i => JSON.parse(i));
+
+		if(source) {
+			parsed = parsed.filter(e =>
+				e.metrics?.source?.includes(source)
+			);
+		}
+
+		res.json(parsed);
+	});
+
 	return router;
 }
