@@ -12,7 +12,7 @@ from dispatch import Dispatcher
 from config import INTERVAL, SOCKET_NAME
 
 logging.basicConfig(
-	level=logging.INFO,
+	level=logging.DEBUG,
 	format="%(asctime)s %(levelname)s %(message)s",
 )
 
@@ -60,8 +60,8 @@ def create_collectors():
 class Agent:
 	def __init__(self):
 		self.collectors = create_collectors()
-		# self.transport = Transport()
-		self.transport = DebugTransport()
+		self.transport = Transport()
+		# self.transport = DebugTransport()
 		self.dispatcher = Dispatcher(self.transport, INTERVAL)
 		self.server = None
 
@@ -100,30 +100,6 @@ class Agent:
 				await self.dispatcher.enqueue(item)
 
 			logging.info("Socket payload accepted")
-
-		except Exception as e:
-			logging.warning(f"Socket error: {e}")
-
-		finally:
-			writer.close()
-
-			await writer.wait_closed()
-
-	async def handle_socket_old(self, reader, writer):
-		"""
-		Handles incoming UNIX socket messages and enqueues them.
-		"""
-
-		try:
-			data = await reader.read(4096)
-
-			if data:
-				message = data.decode().strip()
-
-				logging.info(f"Socket received: {message}")
-
-				# Later: parse/validate JSON before enqueue
-				await self.dispatcher.enqueue(message)
 
 		except Exception as e:
 			logging.warning(f"Socket error: {e}")

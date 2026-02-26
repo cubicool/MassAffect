@@ -1,11 +1,11 @@
 import aiohttp
-# import asyncio
 import hmac
 import hashlib
 import logging
 import json
+import gzip
 
-from config import CONTROLLER_URL, AGENT_SECRET
+from config import CONTROLLER_URL, AGENT_SECRET, COMPRESSION_THRESHOLD
 
 class Transport:
 	def __init__(self):
@@ -15,22 +15,24 @@ class Transport:
 
 	async def send(self, payload):
 		"""
-		Accepts a batch of payloads (list) and sends them
-		as a single JSON array to the controller.
+		Accepts a batch of payloads (list) and sends them as a single JSON array to
+		the controller.
 		"""
 
 		# Ensure we always send a list (defensive safety)
 		if not isinstance(payload, list):
 			payload = [payload]
 
-		body = json.dumps(
+		# Canonical JSON (no spaces)
+		raw_body = json.dumps(
 			payload,
 			separators=(",", ":"),
 		).encode()
 
+		# Sign the RAW JSON
 		signature = hmac.new(
 			AGENT_SECRET.encode(),
-			body,
+			raw_body,
 			hashlib.sha256,
 		).hexdigest()
 
@@ -38,6 +40,16 @@ class Transport:
 			"Content-Type": "application/json",
 			"x-agent-signature": signature,
 		}
+
+		if len(raw_body) > COMPRESSION_THRESHOLD:
+			body = gzip.compress(raw_body)
+
+			headers["Content-Encoding"] = "gzip"
+
+			logging.debug(f"[Transport] raw size: {len(raw_body)} compressed: {len(body)}")
+
+		else:
+			body = raw_body
 
 		async with self.session.post(
 			CONTROLLER_URL,
@@ -50,6 +62,7 @@ class Transport:
 	async def close(self):
 		await self.session.close()
 
+# Simply logs `send/close`, rather than firing them off.
 class DebugTransport:
 	async def send(self, payload):
 		logging.info(f"[DebugTransport] Would send: {payload}")
@@ -57,6 +70,7 @@ class DebugTransport:
 	async def close(self):
 		logging.info("[DebugTransport] Closed")
 
+# Accumulates into the `.sent` member (for use in pytest, etc).
 class TestTransport:
 	def __init__(self):
 		self.sent = []
