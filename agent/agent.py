@@ -41,12 +41,12 @@ def create_collectors():
 	classes = discover_collectors()
 	class_map = {cls.__name__: cls for cls in classes}
 
-	# 1) autoload defaults
+	# If autoload is set...
 	for cls in classes:
 		if getattr(cls, "autoload", False):
 			instances.append(cls())
 
-	# 2) configured ones
+	# Otherwise, check for some config knobs!
 	for entry in getattr(config, "COLLECTORS", []):
 		cls = class_map.get(entry["type"])
 

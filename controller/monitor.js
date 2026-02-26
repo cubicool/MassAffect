@@ -10,7 +10,8 @@ export default function monitorRoutes(redis) {
 		"::1": "localhost"
 	};
 
-	const clients = new Set(); // Active SSE connections
+	// Represents all the active SSE connections.
+	const clients = new Set();
 
 	function verifyIP(req, res, next) {
 		const ip = req.ip.replace("::ffff:", "");
@@ -128,6 +129,14 @@ export default function monitorRoutes(redis) {
 						+ output.textContent
 					;
 				};
+
+				/* const interval = setInterval(() => {
+					res.write(": keepalive\n\n");
+				}, 15000);
+
+				req.on("close", () => {
+					clearInterval(interval);
+				}); */
 			</script>
 
 			</body>

@@ -6,6 +6,7 @@ class Dispatcher:
 		self.transport = transport
 		self.interval = interval
 		self.queue = asyncio.Queue()
+
 		self._running = True
 
 	async def enqueue(self, payload, flush=False):
