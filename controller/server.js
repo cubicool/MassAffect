@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import morgan from "morgan";
+import path from "path";
 
 import { createClient } from 'redis';
 
@@ -14,10 +15,13 @@ import monitorRoutes from "./monitor.js";
 
 const app = express();
 
+// This line ensures we get the REAL IP from OLS, which is proxying us.
+app.set("trust proxy", true);
+app.set("view engine", "ejs");
+app.set("views", path.join(process.cwd(), "views"));
+
 app.use(express.json({ limit: "1mb" }));
 app.use(morgan("dev"));
-app.set("trust proxy", true);
-
 app.use("/monitor", monitorRoutes(redis));
 
 app.listen(process.env.PORT, () => {

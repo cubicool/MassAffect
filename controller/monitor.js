@@ -144,6 +144,8 @@ export default function monitorRoutes(redis) {
 		`);
 	});
 
+	// TODO: This demos how the REST API would work; nothing fancy. Firefox has a cool, structured
+	// JSON viewer it fires up for this. :)
 	router.get("/json/:vps/:collector", async (req, res) => {
 		const { vps, collector } = req.params;
 		const { source } = req.query;
@@ -160,6 +162,17 @@ export default function monitorRoutes(redis) {
 		}
 
 		res.json(parsed);
+	});
+
+	// Now, let's start building up VPS-specific viewing routes...
+	router.get("/vps/:vps/logs", async (req, res) => {
+		const { vps } = req.params;
+		const key = `ma:vps:${vps}:logs:events`;
+
+		const items = await redis.lRange(key, 0, 99);
+		const parsed = items.map(i => JSON.parse(i));
+
+		res.render("logs", { vps, events: parsed });
 	});
 
 	return router;
