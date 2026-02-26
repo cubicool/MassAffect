@@ -4,21 +4,23 @@ import crypto from "crypto";
 export default function monitorRoutes(redis) {
 	const router = express.Router();
 
-	const ALLOWED_IPS = new Set([
-		"127.0.0.1", "::1",
-		"104.13.36.111" // Jeremy
-	]);
+	const AGENTS = {
+		"104.13.36.111": "xeno", // Jeremy
+		"127.0.0.1": "localhost",
+		"::1": "localhost"
+	};
 
 	const clients = new Set(); // Active SSE connections
 
 	function verifyIP(req, res, next) {
 		const ip = req.ip.replace("::ffff:", "");
 
-		if(!ALLOWED_IPS.has(ip)) {
+		if(!AGENTS[ip]) {
 			console.log("verifyIP failure:", ip);
 
 			return res.status(403).json({ error: "Forbidden" });
 		}
+
 		next();
 	}
 
@@ -30,9 +32,12 @@ export default function monitorRoutes(redis) {
 		const expected = crypto
 			.createHmac("sha256", SECRET)
 			.update(body)
-			.digest("hex");
+			.digest("hex")
+		;
 
 		if(!signature || signature.length !== expected.length) {
+			console.log("verifyHMAC failure A");
+
 			return res.status(401).json({ error: "Invalid signature" });
 		}
 
@@ -42,6 +47,8 @@ export default function monitorRoutes(redis) {
 		);
 
 		if(!safe) {
+			console.log("verifyHMAC failure B");
+
 			return res.status(401).json({ error: "Invalid signature" });
 		}
 
@@ -50,7 +57,7 @@ export default function monitorRoutes(redis) {
 
 	router.use(verifyIP);
 
-	// --- SSE STREAM ---
+	// SSE stream (refreshed by JavaScript)
 	router.get("/stream",(req, res) => {
 		res.setHeader("Content-Type", "text/event-stream");
 		res.setHeader("Cache-Control", "no-cache");
@@ -61,78 +68,71 @@ export default function monitorRoutes(redis) {
 
 		clients.add(res);
 
-		req.on("close",() => {
-			clients.delete(res);
-		});
+		req.on("close",() => { clients.delete(res); });
 	});
 
-	// --- POST collector endpoint ---
-	router.post("/system", verifyHMAC, async(req, res) => {
-		console.log("Received system metrics:", req.body.hostname);
+	// POST collector endpoint
+	router.post("/collect", verifyHMAC, async(req, res) => {
+		const events = Array.isArray(req.body) ? req.body : [req.body];
+		const ip = req.ip.replace("::ffff:", "");
+		const hostname = AGENTS[ip];
 
-		const payload = req.body;
-		const id = Date.now().toString();
+		if(!hostname) return res.status(403).json({ error: "Unknown agent IP" });
 
-		await redis.set(`collector:${id}`, JSON.stringify(payload));
-		await redis.lPush("collector:index", id);
-		await redis.lTrim("collector:index", 0, 99);
+		console.log("Received system metrics:", hostname);
 
-		// Broadcast to all live viewers
-		const message = `data: ${JSON.stringify({ id, payload })}\n\n`;
+		// TODO: We'll eventually need/want these!
+		// await redis.sAdd("ma:vps:index", hostname);
+		// await redis.sAdd(`ma:vps:${hostname}:collectors`, event.collector);
 
-		for(const client of clients) {
-			client.write(message);
+		for(const event of events) {
+			if(!event.collector || !event.ts || !event.metrics) continue;
+
+			const key = `ma:vps:${hostname}:${event.collector}:events`;
+
+			await redis.lPush(key, JSON.stringify(event));
+			await redis.lTrim(key, 0, 1999);
+
+			// Broadcast directly to any currently connected SSE clients (above).
+			const message = `data: ${JSON.stringify(event)}\n\n`;
+
+			for(const client of clients) client.write(message);
 		}
 
 		res.json({ ok: true });
 	});
 
-	// --- GET viewer(history + live updates) ---
-	router.get("/", async(req, res) => {
-		try {
-			const ids = await redis.lRange("collector:index", 0, 19);
-			const items = await Promise.all(
-				ids.map(id => redis.get(`collector:${id}`))
-			);
+	// GET viewer(history + live updates)
+	router.get("/", async (req, res) => {
+		const key = "ma:vps:xeno:logs:events";
 
-			const parsed = items
-				.filter(Boolean)
-				.map(item => JSON.parse(item))
-			;
+		const items = await redis.lRange(key, 0, 19);
+		const parsed = items.map(i => JSON.parse(i));
 
-			res.type("html").send(`
-				<html>
-				<body style="background:#111;color:#0f0;font-family:monospace;padding:20px;">
-				<h2>MassAffect Collector(Live)</h2>
-				<pre id="output">${JSON.stringify(parsed, null, 2)}</pre>
+		res.type("html").send(`
+			<html>
+			<body style="background:#111;color:#0f0;font-family:monospace;padding:20px;">
+			<h2>MassAffect Live</h2>
+			<pre id="output">${JSON.stringify(parsed, null, 2)}</pre>
 
-				<script>
-					const output = document.getElementById("output");
-					const evtSource = new EventSource("/monitor/stream");
+			<script>
+				const output = document.getElementById("output");
+				const evtSource = new EventSource("/monitor/stream");
 
-					evtSource.onmessage = function(event) {
-						const data = JSON.parse(event.data);
+				evtSource.onmessage = function(event) {
+					const data = JSON.parse(event.data);
 
-						// Ignore initial "connected" message
-						if(data.payload) {
-							output.textContent =
-								JSON.stringify(data.payload, null, 2)
-								+ "\\n\\n"
-								+ output.textContent;
-						}
-					};
-				</script>
+					output.textContent =
+						JSON.stringify(data, null, 2)
+						+ "\\n\\n"
+						+ output.textContent
+					;
+				};
+			</script>
 
-				</body>
-				</html>
-			`);
-		}
-
-		catch(err) {
-			console.error("Monitor GET error:", err);
-
-			res.status(500).json({ error: "Failed to load monitor data" });
-		}
+			</body>
+			</html>
+		`);
 	});
 
 	return router;
