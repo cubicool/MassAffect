@@ -7,7 +7,7 @@ import importlib
 import json
 import time
 
-from transport import Transport, DebugTransport
+from transport import HTTPTransport, DebugTransport
 from dispatch import Dispatcher
 from config import INTERVAL, SOCKET_NAME
 
@@ -60,8 +60,8 @@ def create_collectors():
 class Agent:
 	def __init__(self):
 		self.collectors = create_collectors()
-		self.transport = Transport()
-		# self.transport = DebugTransport()
+		# self.transport = HTTPTransport()
+		self.transport = DebugTransport()
 		self.dispatcher = Dispatcher(self.transport, INTERVAL)
 		self.server = None
 
