@@ -6,12 +6,20 @@ export default function monitorRoutes(redis) {
 
 	const AGENTS = {
 		"104.13.36.111": "xeno", // Jeremy
+		"73.229.39.141": "chris",
+		"199.241.139.173": "omicron",
+		"144.202.111.30": "lambda",
 		"127.0.0.1": "localhost",
 		"::1": "localhost"
 	};
 
 	// Represents all the active SSE connections.
 	const clients = new Set();
+
+	// TODO: Doesn't work!
+	// const clients = new Map();
+	// key = "vps:collector"
+	// value = Set(res)
 
 	function verifyIP(req, res, next) {
 		const ip = req.ip.replace("::ffff:", "");
@@ -72,6 +80,28 @@ export default function monitorRoutes(redis) {
 		req.on("close",() => { clients.delete(res); });
 	});
 
+	router.get("/stream/:vps/:collector", (req, res) => {
+		const { vps, collector } = req.params;
+		const streamKey = `${vps}:${collector}`;
+
+		res.setHeader("Content-Type", "text/event-stream");
+		res.setHeader("Cache-Control", "no-cache");
+		res.setHeader("Connection", "keep-alive");
+		res.flushHeaders?.();
+
+		if (!clients.has(streamKey)) {
+			clients.set(streamKey, new Set());
+		}
+
+		clients.get(streamKey).add(res);
+
+		res.write(`data: ${JSON.stringify({ status: "connected" })}\n\n`);
+
+		req.on("close", () => {
+			clients.get(streamKey)?.delete(res);
+		});
+	});
+
 	// POST collector endpoint
 	router.post("/collect", verifyHMAC, async(req, res) => {
 		const events = Array.isArray(req.body) ? req.body : [req.body];
@@ -98,6 +128,16 @@ export default function monitorRoutes(redis) {
 			const message = `data: ${JSON.stringify(event)}\n\n`;
 
 			for(const client of clients) client.write(message);
+			
+			// TODO: Doesn't work!
+			/* const streamKey = `${hostname}:${event.collector}`;
+			const group = clients.get(streamKey);
+
+			if(group) {
+				for(const client of group) {
+					client.write(message);
+				}
+			} */
 		}
 
 		res.json({ ok: true });
@@ -167,12 +207,20 @@ export default function monitorRoutes(redis) {
 	// Now, let's start building up VPS-specific viewing routes...
 	router.get("/vps/:vps/logs", async (req, res) => {
 		const { vps } = req.params;
+		const { source } = req.query;
+
 		const key = `ma:vps:${vps}:logs:events`;
 
-		const items = await redis.lRange(key, 0, 99);
-		const parsed = items.map(i => JSON.parse(i));
+		const items = await redis.lRange(key, 0, 199);
+		let parsed = items.map(i => JSON.parse(i));
 
-		res.render("logs", { vps, events: parsed });
+		if (source) {
+			parsed = parsed.filter(e =>
+				e.metrics?.source?.includes(source)
+			);
+		}
+
+		res.render("logs", { vps, events: parsed, source });
 	});
 
 	return router;

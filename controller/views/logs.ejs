@@ -51,10 +51,48 @@
 		}
 
 		.message {
-			margin-top: 6px;
+			margin-bottom: 0px;
 			white-space: pre-wrap;
 			word-break: break-word;
 		}
+
+		.nginx-log {
+			font-size: 14px;
+			line-height: 1.4;
+		}
+
+		.meta {
+			color: #8b949e;
+			font-size: 12px;
+			margin-top: 4px;
+		}
+
+		.ua {
+			color: #6e7681;
+			font-size: 12px;
+			margin-top: 6px;
+			word-break: break-word;
+		}
+
+		.nginx-line {
+			display: flex;
+			gap: 6px;
+			align-items: baseline;
+			min-width: 0; /* important for flex truncation */
+		}
+
+		.truncate {
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			display: block;
+			min-width: 0;
+			flex: 1;
+		}
+
+		.status-200 { color: #3fb950; }
+		.status-404 { color: #f85149; }
+		.status-500 { color: #ff7b72; }
 	</style>
 </head>
 
@@ -62,11 +100,29 @@
 
 <header>
 	MassAffect Logs :: <span class="vps-name"><%= vps %></span>
+
+	<% if (source) { %>
+		<span style="color:#f85149;">(filtered: <%= source %>)</span>
+	<% } %>
 </header>
+
+<form method="GET" style="padding: 16px 24px; background:#161b22;">
+	<input 
+		type="text" 
+		name="source" 
+		placeholder="Filter by source..."
+		value="<%= source || '' %>"
+		style="background:#0d1117;color:#c9d1d9;border:1px solid #30363d;padding:6px 10px;border-radius:4px;"
+	/>
+	<button type="submit" style="margin-left:8px;padding:6px 10px;background:#238636;border:none;border-radius:4px;color:white;">
+		Filter
+	</button>
+</form>
 
 <div class="log-container">
 	<% events.forEach(event => { %>
 		<div class="log-entry">
+
 			<div class="ts">
 				<%= new Date(event.ts * 1000).toISOString() %>
 			</div>
@@ -75,9 +131,27 @@
 				<%= event.metrics?.source || "unknown source" %>
 			</div>
 
-			<div class="message">
-				<%= JSON.stringify(event.metrics, null, 2) %>
-			</div>
+			<%
+				const metrics = event.metrics || {};
+				let template = "partials/raw";
+
+				// Renderer selection logic
+				if (metrics.source?.includes("access.log")) {
+					template = "partials/nginx";
+				}
+
+				// Future examples:
+				// if (metrics.source?.includes("error.log")) {
+				//     template = "partials/nginx_error";
+				// }
+				//
+				// if (event.collector === "system") {
+				//     template = "partials/system";
+				// }
+			%>
+
+			<%- include(template, { metrics }) %>
+
 		</div>
 	<% }) %>
 </div>
