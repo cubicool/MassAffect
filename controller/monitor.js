@@ -1,31 +1,23 @@
 import express from "express";
-import crypto from "crypto";
+import crypto from "node:crypto";
 import ejs from "ejs";
-import path from "path";
+import path from "node:path";
+import fs from "node:fs";
 
-export default function monitorRoutes(redis) {
+export default function monitorRoutes(redis, pg) {
 	const router = express.Router();
 
-	router.use((req, res, next) => {
+	/* router.use((req, res, next) => {
 		console.log("Monitor router saw:", req.method, req.originalUrl);
+
 		next();
-	});
+	}); */
 
-	const AGENTS = {
-		"104.13.36.111": "xeno", // Jeremy
-		"73.229.39.141": "chris",
-		"199.241.139.173": "omicron",
-		"144.202.111.30": "lambda",
-		"127.0.0.1": "localhost",
-		"::1": "localhost"
-	};
+	const AGENTS = JSON.parse(fs.readFileSync(process.env.AGENT_FILE || "./agents.json"));
 
-	// Represents all the active SSE connections.
-	// const clients = new Set();
-
-	const clients = new Map();
 	// key = "vps:collector"
 	// value = Set(res)
+	const clients = new Map();
 
 	function verifyIP(req, res, next) {
 		const ip = req.ip.replace("::ffff:", "");
@@ -126,7 +118,7 @@ export default function monitorRoutes(redis) {
 		console.log("Received system metrics:", hostname);
 
 		// TODO: We'll eventually need/want these!
-		// await redis.sAdd("ma:vps:index", hostname);
+		await redis.sAdd("ma:vps:index", hostname);
 		// await redis.sAdd(`ma:vps:${hostname}:collectors`, event.collector);
 
 		for(const event of events) {
@@ -136,6 +128,28 @@ export default function monitorRoutes(redis) {
 
 			await redis.lPush(key, JSON.stringify(event));
 			await redis.lTrim(key, 0, 1999);
+
+			// TODO: Is this correct?
+			await redis.sAdd(`ma:vps:${hostname}:collectors`, event.collector);
+
+			// TODO: This is essentially our "cold storage" for historical analysis later.
+			try {
+				await pg.query(
+					`INSERT INTO events (vps, collector, ts, metrics)
+					VALUES ($1, $2, $3, $4)`,
+					[
+						hostname,
+						event.collector,
+						event.ts,
+						event.metrics
+					]
+				);
+
+			}
+
+			catch(err) {
+				console.error("Postgres insert failed:", err.message);
+			}
 
 			// Broadcast directly to any currently connected SSE clients (above).
 			// const message = `data: ${JSON.stringify(event)}\n\n`;
@@ -227,6 +241,18 @@ export default function monitorRoutes(redis) {
 		}
 
 		res.json(parsed);
+	});
+
+	// Another REST demo for querying the known VPSes.
+	router.get("/json/vps", async (req, res) => {
+		const vps = await redis.sMembers("ma:vps:index");
+		const result = {};
+
+		for(const host of vps) {
+			result[host] = await redis.sMembers(`ma:vps:${host}:collectors`);
+		}
+
+		res.json(result);
 	});
 
 	// Now, let's start building up VPS-specific viewing routes...

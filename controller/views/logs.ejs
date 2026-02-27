@@ -101,7 +101,7 @@
 <header>
 	MassAffect Logs :: <span class="vps-name"><%= vps %></span>
 
-	<% if (source) { %>
+	<% if(source) { %>
 		<span style="color:#f85149;">(filtered: <%= source %>)</span>
 	<% } %>
 </header>
@@ -129,24 +129,21 @@
 	const vps = "<%= vps %>";
 	const collector = "logs";
 	const activeFilter = "<%= source || "" %>";
-
 	const container = document.querySelector(".log-container");
-
-	const evtSource = new EventSource(
-		`/monitor/stream/${vps}/${collector}`
-	);
+	const evtSource = new EventSource(`/monitor/stream/${vps}/${collector}`);
 
 	evtSource.onmessage = function(event) {
 		const data = JSON.parse(event.data);
 
-		if (data.status === "connected") return;
+		if(data.status === "connected") return;
 
-		if (activeFilter) {
+		if(activeFilter) {
 			// crude but effective: skip if filter not in HTML
-			if (!data.html.includes(activeFilter)) return;
+			if(!data.html.includes(activeFilter)) return;
 		}
 
 		const wrapper = document.createElement("div");
+
 		wrapper.innerHTML = data.html;
 
 		container.prepend(wrapper.firstElementChild);

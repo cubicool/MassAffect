@@ -27,6 +27,39 @@ Some kinds of events might have additional toplevel key (WP):
 }
 ```
 
+# Postgres
+
+```
+su - postgres
+
+psql
+
+CREATE USER massaffect WITH PASSWORD 'strongpassword';
+CREATE DATABASE massaffect OWNER massaffect;
+
+CREATE TABLE IF NOT EXISTS events (
+    id BIGSERIAL PRIMARY KEY,
+    vps TEXT NOT NULL,
+    collector TEXT NOT NULL,
+    ts BIGINT NOT NULL,
+    metrics JSONB NOT NULL
+);
+```
+
+In order to make `psql` interaction cleaner, create `~/.pgpass` with this format:
+
+```
+hostname:port:database:username:password
+```
+
+For example:
+
+```
+localhost:5432:massaffect:massaffect:yourpassword
+```
+
+**NOTE**: Be sure to `chmod 600 ~/.pgpass`, this is *not optional*.
+
 # HTTP Codes Cheatsheet
 
 | Code | Description |
