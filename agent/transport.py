@@ -79,7 +79,7 @@ class DebugTransport(Transport):
 		if "Content-Encoding" in headers:
 			body = gzip.decompress(body)
 
-		logging.info(f"[DebugTransport] Would send: {body}")
+		logging.info(f"[DebugTransport] Would send: {body.decode()}")
 
 	async def close(self):
 		logging.info("[DebugTransport] Closed")
