@@ -56,7 +56,11 @@ function massaffect_send(array $payload) {
     $addr = "\0massaffect";
 
     if (@socket_connect($sock, $addr)) {
-        $json = json_encode($payload, JSON_UNESCAPED_SLASHES) . "\n";
+	    $json = json_encode([
+		    "collector" => "wordpress",
+		    "ts" => time(),
+		    "metrics" => $payload
+	    ], JSON_UNESCAPED_SLASHES) . "\n";
         @socket_write($sock, $json, strlen($json));
     }
 
@@ -136,7 +140,6 @@ register_shutdown_function(function () use ($__ma_start_time, $__ma_start_ru, $_
     $data = [
         'request_id'     => $__ma_request_id,
 
-        'ts'             => date('c'),
         'remote_addr'    => $remote_addr,
         'forwarded_for'  => $forwarded_for,
         'host'           => $host,
@@ -174,6 +177,7 @@ register_shutdown_function(function () use ($__ma_start_time, $__ma_start_ru, $_
     ];
 
     // TODO: Decide whether to use massaffect_send()!
+    massaffect_send($data);
 
     $logfile = WP_CONTENT_DIR . '/massaffect.log';
 
