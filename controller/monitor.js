@@ -4,6 +4,11 @@ import crypto from "crypto";
 export default function monitorRoutes(redis) {
 	const router = express.Router();
 
+	router.use((req, res, next) => {
+		console.log("Monitor router saw:", req.method, req.originalUrl);
+		next();
+	});
+
 	const AGENTS = {
 		"104.13.36.111": "xeno", // Jeremy
 		"73.229.39.141": "chris",
@@ -14,10 +19,9 @@ export default function monitorRoutes(redis) {
 	};
 
 	// Represents all the active SSE connections.
-	const clients = new Set();
+	// const clients = new Set();
 
-	// TODO: Doesn't work!
-	// const clients = new Map();
+	const clients = new Map();
 	// key = "vps:collector"
 	// value = Set(res)
 
@@ -66,18 +70,25 @@ export default function monitorRoutes(redis) {
 
 	router.use(verifyIP);
 
-	// SSE stream (refreshed by JavaScript)
-	router.get("/stream",(req, res) => {
+	router.get("/stream", (req, res) => {
 		res.setHeader("Content-Type", "text/event-stream");
 		res.setHeader("Cache-Control", "no-cache");
 		res.setHeader("Connection", "keep-alive");
 		res.flushHeaders?.();
 
+		const defaultKey = "global";
+
+		if(!clients.has(defaultKey)) {
+			clients.set(defaultKey, new Set());
+		}
+
+		clients.get(defaultKey).add(res);
+
 		res.write(`data: ${JSON.stringify({ status: "connected" })}\n\n`);
 
-		clients.add(res);
-
-		req.on("close",() => { clients.delete(res); });
+		req.on("close", () => {
+			clients.get(defaultKey)?.delete(res);
+		});
 	});
 
 	router.get("/stream/:vps/:collector", (req, res) => {
@@ -89,7 +100,7 @@ export default function monitorRoutes(redis) {
 		res.setHeader("Connection", "keep-alive");
 		res.flushHeaders?.();
 
-		if (!clients.has(streamKey)) {
+		if(!clients.has(streamKey)) {
 			clients.set(streamKey, new Set());
 		}
 
@@ -127,17 +138,22 @@ export default function monitorRoutes(redis) {
 			// Broadcast directly to any currently connected SSE clients (above).
 			const message = `data: ${JSON.stringify(event)}\n\n`;
 
-			for(const client of clients) client.write(message);
-			
-			// TODO: Doesn't work!
-			/* const streamKey = `${hostname}:${event.collector}`;
-			const group = clients.get(streamKey);
+			const globalClients = clients.get("global");
 
-			if(group) {
-				for(const client of group) {
+			if(globalClients) {
+				for(const client of globalClients) {
 					client.write(message);
 				}
-			} */
+			}
+
+			const scopedKey = `${hostname}:${event.collector}`;
+			const scopedClients = clients.get(scopedKey);
+
+			if(scopedClients) {
+				for(const client of scopedClients) {
+					client.write(message);
+				}
+			}
 		}
 
 		res.json({ ok: true });
@@ -214,7 +230,7 @@ export default function monitorRoutes(redis) {
 		const items = await redis.lRange(key, 0, 199);
 		let parsed = items.map(i => JSON.parse(i));
 
-		if (source) {
+		if(source) {
 			parsed = parsed.filter(e =>
 				e.metrics?.source?.includes(source)
 			);

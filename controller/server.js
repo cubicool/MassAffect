@@ -20,7 +20,7 @@ app.set("trust proxy", true);
 app.set("view engine", "ejs");
 app.set("views", path.join(process.cwd(), "views"));
 
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "10mb" }));
 app.use(morgan("dev"));
 app.use("/monitor", monitorRoutes(redis));
 

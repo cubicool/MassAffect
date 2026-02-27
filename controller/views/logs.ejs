@@ -156,5 +156,70 @@
 	<% }) %>
 </div>
 
+<script>
+	const vps = "<%= vps %>";
+	const collector = "logs";
+	const activeFilter = "<%= source || "" %>";
+
+	const container = document.querySelector(".log-container");
+
+	const evtSource = new EventSource(
+		`/monitor/stream/${vps}/${collector}`
+	);
+
+	evtSource.onmessage = function(event) {
+		const data = JSON.parse(event.data);
+
+		if (data.status === "connected") return;
+
+		if (activeFilter && !data.metrics?.source?.includes(activeFilter)) {
+			return;
+		}
+
+		const metrics = data.metrics || {};
+		const source = metrics.source || "";
+
+		const div = document.createElement("div");
+		div.className = "log-entry";
+
+		let content = "";
+
+		// --- nginx-style render ---
+		if (source.includes("access.log")) {
+			content = `
+				<div class="nginx-line">
+					<strong>${metrics.remote_addr || ""}</strong>
+					→ ${metrics.method || ""}
+					<span class="truncate" title="${metrics.path || ""}">
+						${metrics.path || ""}
+					</span>
+				</div>
+				<div class="meta">
+					Status: ${metrics.status || ""}
+					| Bytes: ${metrics.body_bytes_sent || ""}
+				</div>
+			`;
+		}
+		// --- raw-style render ---
+		else {
+			content = `
+				<pre class="message">${(metrics.raw || "").trimEnd()}</pre>
+			`;
+		}
+
+		div.innerHTML = `
+			<div class="ts">
+				${new Date(data.ts * 1000).toISOString()}
+			</div>
+			<div class="source">
+				${source || "unknown source"}
+			</div>
+			${content}
+		`;
+
+		container.prepend(div);
+	};
+</script>
+
 </body>
 </html>
