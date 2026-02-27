@@ -30,6 +30,12 @@ The **Controller** provides an SSE (Sever-Sent Events) viewing route that shows
 ALL incoming JSON data from all approved sources. Only *whitelisted* IP address
 are permitted.
 
+**NOTE**: The current approach is to render on the server, and stream the final
+HTML as SSE events. This keeps things simple and unifies UI logic; there's really
+no need to have complicated JavaScript build the UI reactively in the browser. In
+fact, this kind of "easy hydration" approach to dynamic content is making a
+comeback lately!
+
 ### Controller (REST API)
 
 **TODO**: Describe JSON routes and GET query params.
@@ -76,3 +82,8 @@ compressed before being queued for dispatch to the **Controller**.
 
 For the time being, all configuration is managed with a simple `config.py`
 (which is ignored by Git, since it will contain the HMAC "secret").
+
+# TODO
+
+- Add timestamp to HMAC verification to prevent replay attacks
+- Experiment with adding additional id components to the "logs" namespace

@@ -1,0 +1,28 @@
+import os
+
+from collector.log import NginxParser, RawParser
+
+CONTROLLER_URL = os.getenv("MASSAFFECT_URL", "https://localhost/collect")
+AGENT_SECRET = os.getenv("MASSAFFECT_SECRET", "YourHMACSecret")
+INTERVAL = int(os.getenv("MASSAFFECT_INTERVAL", "15"))
+SOCKET_NAME = "\0massaffect"
+COMPRESSION_THRESHOLD = 512
+
+COLLECTORS = [
+	#{
+	#	"type": "LogCollector",
+	#	"config": {
+	#		"patterns": ["/home/*/logs/*_access.log"],
+	#		"parser": NginxParser(),
+	#		"state_file": ".ma_nginx.json"
+	#	}
+	#},
+	{
+		"type": "LogCollector",
+		"config": {
+			"patterns": ["/var/log/syslog"],
+			"parser": RawParser(),
+			"state_file": ".ma_syslog.json"
+		}
+	}
+]
