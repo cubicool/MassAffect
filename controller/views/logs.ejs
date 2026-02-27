@@ -121,38 +121,7 @@
 
 <div class="log-container">
 	<% events.forEach(event => { %>
-		<div class="log-entry">
-
-			<div class="ts">
-				<%= new Date(event.ts * 1000).toISOString() %>
-			</div>
-
-			<div class="source">
-				<%= event.metrics?.source || "unknown source" %>
-			</div>
-
-			<%
-				const metrics = event.metrics || {};
-				let template = "partials/raw";
-
-				// Renderer selection logic
-				if (metrics.source?.includes("access.log")) {
-					template = "partials/nginx";
-				}
-
-				// Future examples:
-				// if (metrics.source?.includes("error.log")) {
-				//     template = "partials/nginx_error";
-				// }
-				//
-				// if (event.collector === "system") {
-				//     template = "partials/system";
-				// }
-			%>
-
-			<%- include(template, { metrics }) %>
-
-		</div>
+		<%- include("partials/log-entry", { event }) %>
 	<% }) %>
 </div>
 
@@ -172,52 +141,15 @@
 
 		if (data.status === "connected") return;
 
-		if (activeFilter && !data.metrics?.source?.includes(activeFilter)) {
-			return;
+		if (activeFilter) {
+			// crude but effective: skip if filter not in HTML
+			if (!data.html.includes(activeFilter)) return;
 		}
 
-		const metrics = data.metrics || {};
-		const source = metrics.source || "";
+		const wrapper = document.createElement("div");
+		wrapper.innerHTML = data.html;
 
-		const div = document.createElement("div");
-		div.className = "log-entry";
-
-		let content = "";
-
-		// --- nginx-style render ---
-		if (source.includes("access.log")) {
-			content = `
-				<div class="nginx-line">
-					<strong>${metrics.remote_addr || ""}</strong>
-					→ ${metrics.method || ""}
-					<span class="truncate" title="${metrics.path || ""}">
-						${metrics.path || ""}
-					</span>
-				</div>
-				<div class="meta">
-					Status: ${metrics.status || ""}
-					| Bytes: ${metrics.body_bytes_sent || ""}
-				</div>
-			`;
-		}
-		// --- raw-style render ---
-		else {
-			content = `
-				<pre class="message">${(metrics.raw || "").trimEnd()}</pre>
-			`;
-		}
-
-		div.innerHTML = `
-			<div class="ts">
-				${new Date(data.ts * 1000).toISOString()}
-			</div>
-			<div class="source">
-				${source || "unknown source"}
-			</div>
-			${content}
-		`;
-
-		container.prepend(div);
+		container.prepend(wrapper.firstElementChild);
 	};
 </script>
 

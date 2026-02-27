@@ -1,5 +1,7 @@
 import express from "express";
 import crypto from "crypto";
+import ejs from "ejs";
+import path from "path";
 
 export default function monitorRoutes(redis) {
 	const router = express.Router();
@@ -136,7 +138,14 @@ export default function monitorRoutes(redis) {
 			await redis.lTrim(key, 0, 1999);
 
 			// Broadcast directly to any currently connected SSE clients (above).
-			const message = `data: ${JSON.stringify(event)}\n\n`;
+			// const message = `data: ${JSON.stringify(event)}\n\n`;
+
+			const rendered = await ejs.renderFile(
+				path.join(process.cwd(), "views/partials/log-entry.ejs"),
+				{ event }
+			);
+
+			const message = `data: ${JSON.stringify({ html: rendered })}\n\n`;
 
 			const globalClients = clients.get("global");
 

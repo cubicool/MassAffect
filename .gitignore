@@ -1,3 +1,5 @@
 agent/__pycache__
 agent/collector/__pycache__
 controller/.env
+controller/node_modules
+controller/package-lock.json

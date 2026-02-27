@@ -1,0 +1,20 @@
+<div class="log-entry">
+	<div class="ts">
+		<%= new Date(event.ts * 1000).toISOString() %>
+	</div>
+
+	<div class="source">
+		<%= event.metrics?.source || "unknown source" %>
+	</div>
+
+	<%
+		const metrics = event.metrics || {};
+		let template = "raw";
+
+		if (metrics.source?.includes("access.log")) {
+			template = "nginx";
+		}
+	%>
+
+	<%- include(template, { metrics }) %>
+</div>
