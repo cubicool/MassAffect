@@ -1,14 +1,11 @@
-#vimrun! python3 -m collector.system
-
 import json
-import os
 import re
 
 from abc import ABC, abstractmethod
 from pathlib import Path
 # from typing import Optional
 
-from . import Collector, cli_run
+from . import Collector
 
 class LogStateStore:
 	def __init__(self, path: Path):
@@ -184,5 +181,3 @@ class LogCollector(Collector):
 					}
 
 		self.state.save()
-
-cli_run(LogCollector, __name__)

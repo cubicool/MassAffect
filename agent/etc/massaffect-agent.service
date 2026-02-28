@@ -6,12 +6,15 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/opt/massaffect-agent
+# Environment=MASSAFFECT_CONFIG=/etc/massaffect/config.py
 Environment=MASSAFFECT_URL=https://yourdomain.com/monitor/system
 Environment=MASSAFFECT_SECRET=supersecret
 Environment=MASSAFFECT_INTERVAL=15
 ExecStart=/usr/bin/python3 /opt/massaffect-agent/agent.py
 Restart=always
 RestartSec=5
+# StandardOutput=syslog
+# SyslogIdentifier=massaffect
 
 [Install]
 WantedBy=multi-user.target

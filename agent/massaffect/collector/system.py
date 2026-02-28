@@ -1,6 +1,4 @@
-#vimrun! python3 -m collector.system
-
-from . import Collector, cli_run
+from . import Collector
 
 import socket
 
@@ -12,5 +10,3 @@ class SystemCollector(Collector):
 		yield {
 			"hostname": socket.gethostname(),
 		}
-
-cli_run(SystemCollector, __name__)

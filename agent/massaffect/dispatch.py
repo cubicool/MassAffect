@@ -1,7 +1,8 @@
 import asyncio
-import logging
 
-class Dispatcher:
+from . import Loggable
+
+class Dispatcher(Loggable):
 	def __init__(self, transport, interval):
 		self.transport = transport
 		self.interval = interval
@@ -26,42 +27,42 @@ class Dispatcher:
 		Periodically flush queued payloads.
 		"""
 
-		logging.info("[Dispatcher] started")
+		self.log.info("Running")
 
 		while self._running:
 			await asyncio.sleep(self.interval)
 			await self.flush()
 
-		logging.info("[Dispatcher] stopped")
+		self.log.info("Stopped")
 
 	async def flush(self):
 		"""
 		Drain queue and send as batch.
 		"""
 
-		items = []
+		events = []
 
 		while not self.queue.empty():
 			try:
-				items.append(self.queue.get_nowait())
+				events.append(self.queue.get_nowait())
 
 			except asyncio.QueueEmpty:
 				break
 
-		if not items:
+		if not events:
 			return
 
 		try:
-			await self.transport.send(items)
+			await self.transport.send(events)
 
-			logging.info(f"Dispatched batch ({len(items)} items)")
+			self.log.info(f"Flushed batch ({len(events)} events)")
 
 		except Exception as e:
-			logging.warning(f"Dispatch failed: {e}")
+			self.log.warning(f"Flush failed: {e}")
 
 	async def close(self):
 		"""
-		Stop dispatcher and flush remaining items.
+		Stop dispatcher and flush remaining events.
 		"""
 
 		self._running = False

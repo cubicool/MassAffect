@@ -2,67 +2,24 @@ import os
 import asyncio
 import signal
 import logging
-import pkgutil
-import importlib
 import json
 import time
 
-from transport import HTTPTransport, DebugTransport
-from dispatch import Dispatcher
-from config import INTERVAL, SOCKET_NAME
+from . import config, create_collectors, Loggable
+from . import transport
+from . import dispatch
 
 logging.basicConfig(
 	level=logging.DEBUG,
-	format="%(asctime)s %(levelname)s %(message)s",
+	format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
 )
 
-def discover_collectors():
-	import collector
-
-	collectors = []
-
-	for _, module_name, _ in pkgutil.iter_modules(collector.__path__):
-		module = importlib.import_module(f"collector.{module_name}")
-
-		for obj in module.__dict__.values():
-			if (
-				isinstance(obj, type)
-				and issubclass(obj, collector.Collector)
-				and obj is not collector.Collector
-			):
-				collectors.append(obj)
-
-	return collectors
-
-def create_collectors():
-	import config
-
-	instances = []
-	classes = discover_collectors()
-	class_map = {cls.__name__: cls for cls in classes}
-
-	# If AUTOLOAD is set...
-	for cls in classes:
-		if getattr(cls, "AUTOLOAD", False):
-			instances.append(cls())
-
-	# Otherwise, check for some config knobs!
-	for entry in getattr(config, "COLLECTORS", []):
-		cls = class_map.get(entry["type"])
-
-		if not cls:
-			raise ValueError(f"Unknown collector: {entry['type']}")
-
-		instances.append(cls(**entry.get("config", {})))
-
-	return instances
-
-class Agent:
+class Agent(Loggable):
 	def __init__(self):
 		self.collectors = create_collectors()
-		# self.transport = HTTPTransport()
-		self.transport = DebugTransport()
-		self.dispatcher = Dispatcher(self.transport, INTERVAL)
+		# self.transport = transport.HTTPTransport()
+		self.transport = transport.DebugTransport()
+		self.dispatcher = dispatch.Dispatcher(self.transport, config().INTERVAL)
 		self.server = None
 
 		self._running = True
@@ -78,7 +35,7 @@ class Agent:
 				payload = json.loads(data.decode())
 
 			except json.JSONDecodeError:
-				logging.warning("Invalid JSON received")
+				self.log.warning("Invalid JSON received")
 
 				return
 
@@ -88,21 +45,21 @@ class Agent:
 
 			for item in payload:
 				if not isinstance(item, dict):
-					logging.warning("Non-object JSON received")
+					self.log.warning("Non-object JSON received")
 
 					continue
 
 				if "collector" not in item:
-					logging.warning("Missing 'collector' field")
+					self.log.warning("Missing 'collector' field")
 
 					continue
 
 				await self.dispatcher.enqueue(item)
 
-			logging.info("Socket payload accepted")
+			self.log.info("Socket payload accepted")
 
 		except Exception as e:
-			logging.warning(f"Socket error: {e}")
+			self.log.warning(f"Socket error: {e}")
 
 		finally:
 			writer.close()
@@ -133,23 +90,23 @@ class Agent:
 
 						count += 1
 
-					logging.info(f"{c}: queued {count} events")
+					self.log.info(f"{c}: queued {count} events")
 
 				except Exception as e:
-					logging.warning(f"{c}: collect failed: {e}")
+					self.log.warning(f"{c}: collect failed: {e}")
 
-			await asyncio.sleep(INTERVAL)
+			await asyncio.sleep(config().INTERVAL)
 
 	async def run(self):
-		logging.info("Agent starting")
+		self.log.info("Running")
 
-		if not SOCKET_NAME.startswith("\0"):
-			if os.path.exists(SOCKET_NAME):
-				os.unlink(SOCKET_NAME)
+		if not config().SOCKET_NAME.startswith("\0"):
+			if os.path.exists(config().SOCKET_NAME):
+				os.unlink(config().SOCKET_NAME)
 
 		self.server = await asyncio.start_unix_server(
 			self.handle_socket,
-			path=SOCKET_NAME,
+			path=config().SOCKET_NAME,
 		)
 
 		collector_task = asyncio.create_task(self.handle_collector())
@@ -167,7 +124,7 @@ class Agent:
 			pass
 
 		finally:
-			logging.info("Shutting down...")
+			self.log.info("Stopping tasks")
 
 			server_task.cancel()
 			collector_task.cancel()
@@ -188,10 +145,10 @@ class Agent:
 			await self.dispatcher.close()
 			await self.transport.close()
 
-			logging.info("Agent stopped cleanly")
+			self.log.info("Stopping tasks complete")
 
 	def stop(self):
-		logging.info("Agent shutdown")
+		self.log.info("Stopping")
 
 		self._running = False
 
