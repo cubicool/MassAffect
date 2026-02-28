@@ -3,6 +3,7 @@ import re
 
 from abc import ABC, abstractmethod
 from pathlib import Path
+from datetime import datetime, timezone
 # from typing import Optional
 
 from . import Collector
@@ -127,7 +128,23 @@ class NginxParser:
 
 		# Optional coercion
 		data["status"] = int(data["status"])
-		data["body_bytes_sent"] = (int(data["body_bytes_sent"]) if data["body_bytes_sent"].isdigit() else 0)
+		data["body_bytes_sent"] = (
+			int(data["body_bytes_sent"])
+			if data["body_bytes_sent"].isdigit() else 0
+		)
+
+		# Normalize timestamp
+		tl = data.get("time_local")
+
+		if tl:
+			try:
+				data["event_ts"] = datetime.strptime(
+					tl,
+					"%d/%b/%Y:%H:%M:%S %z"
+				).astimezone(timezone.utc).isoformat()
+
+			except Exception:
+				data["event_ts"] = None
 
 		# Split request line
 		if data["request"]:

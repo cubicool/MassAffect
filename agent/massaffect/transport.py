@@ -10,6 +10,9 @@ from abc import ABC, abstractmethod
 from . import config, Loggable
 
 class Transport(ABC, Loggable):
+	def __init__(self):
+		self.log.debug(f"Compression threshold: {config().COMPRESSION_THRESHOLD}")
+
 	def _headers_body(self, payload):
 		# Ensure we always send a list (defensive safety)
 		if not isinstance(payload, list):
@@ -62,7 +65,7 @@ class HTTPTransport(Transport):
 			timeout=aiohttp.ClientTimeout(total=5)
 		)
 
-		self.log.info("Session opened")
+		self.log.info(f"Session opened to {config().CONTROLLER_URL}")
 
 	async def send(self, payload):
 		headers, body = self._headers_body(payload)

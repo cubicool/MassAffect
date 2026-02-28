@@ -27,7 +27,7 @@ class Dispatcher(Loggable):
 		Periodically flush queued payloads.
 		"""
 
-		self.log.info("Running")
+		self.log.info(f"Running with {self.interval}s interval")
 
 		while self._running:
 			await asyncio.sleep(self.interval)

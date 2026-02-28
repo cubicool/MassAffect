@@ -32,8 +32,9 @@ def config():
 	if not path.exists():
 		raise RuntimeError(f"Config file not found: {path}")
 
-	spec = importlib.util.spec_from_file_location("massaffect_user_CONFIG", path)
+	spec = importlib.util.spec_from_file_location("massaffect_config", path)
 	module = importlib.util.module_from_spec(spec)
+
 	spec.loader.exec_module(module)
 
 	_CONFIG = module
