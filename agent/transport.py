@@ -5,9 +5,10 @@ import logging
 import json
 import gzip
 
+from abc import ABC, abstractmethod
 from config import CONTROLLER_URL, AGENT_SECRET, COMPRESSION_THRESHOLD
 
-class Transport:
+class Transport(ABC):
 	@staticmethod
 	def headers_body(payload):
 		# Ensure we always send a list (defensive safety)
@@ -50,6 +51,10 @@ class Transport:
 			logging.debug(f"[Transport] raw size: {len(raw_body)}")
 
 		return headers, body
+
+	@abstractmethod
+	async def send(self, payload):
+		pass
 
 class HTTPTransport(Transport):
 	def __init__(self):
