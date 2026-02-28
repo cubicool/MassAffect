@@ -26,13 +26,13 @@ class Dispatcher:
 		Periodically flush queued payloads.
 		"""
 
-		logging.info("Dispatcher started")
+		logging.info("[Dispatcher] started")
 
 		while self._running:
 			await asyncio.sleep(self.interval)
 			await self.flush()
 
-		logging.info("Dispatcher stopped")
+		logging.info("[Dispatcher] stopped")
 
 	async def flush(self):
 		"""

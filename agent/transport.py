@@ -57,6 +57,8 @@ class HTTPTransport(Transport):
 			timeout=aiohttp.ClientTimeout(total=5)
 		)
 
+		logging.info("[HTTPTransport] session opened")
+
 	async def send(self, payload):
 		headers, body = self.headers_body(payload)
 
@@ -70,6 +72,8 @@ class HTTPTransport(Transport):
 
 	async def close(self):
 		await self.session.close()
+
+		logging.info("[HTTPTransport] session closed")
 
 # Simply logs `send/close`, rather than firing them off.
 class DebugTransport(Transport):

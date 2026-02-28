@@ -1,20 +1,27 @@
 from abc import ABC, abstractmethod
-from typing import Iterable, Dict, Any
+from typing import Iterator, Dict, Any
 
 import sys
 import json
 
-class BaseCollector(ABC):
-	name = "base"
-	autoload = False
+class Collector(ABC):
+	NAME = "base"
+	AUTOLOAD = False
 
 	# @abstractmethod
 	# def collect(self) -> dict:
 	# 	pass
 
 	@abstractmethod
-	def collect(self) -> Iterable[Dict[str, Any]]:
+	# def collect(self) -> Iterator[Dict[str, Any]]:
+	def collect(self) -> Iterator[dict[str, Any]]:
 		pass
+
+	def name(self) -> str:
+		return self.NAME
+
+	def __repr__(self) -> str:
+		return f"{self.__class__.__name__}[{self.name()}]"
 
 def _coerce(value: str):
 	"""

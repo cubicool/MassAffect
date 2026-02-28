@@ -4,13 +4,16 @@ import json
 import os
 import re
 
+from abc import ABC, abstractmethod
 from pathlib import Path
+# from typing import Optional
 
-from . import BaseCollector, cli_run
+from . import Collector, cli_run
 
 class LogStateStore:
 	def __init__(self, path: Path):
 		self.path = path
+
 		self._state = {}
 		self._load()
 
@@ -43,49 +46,80 @@ class LogFileCursor:
 		st = self.path.stat()
 		inode = st.st_ino
 		size = st.st_size
-
 		saved = self.store.get(self.path)
 		offset = 0
 
 		if saved:
 			if saved["inode"] == inode:
 				offset = saved["offset"]
+
+				# File was probably truncated.
 				if size < offset:
-					offset = 0  # truncated
+					offset = 0
+
+			# Likely rotated to .1, .2, etc.
 			else:
-				offset = 0  # rotated
+				offset = 0
 
 		lines = []
 
 		with self.path.open("r") as f:
 			f.seek(offset)
+
 			for line in f:
 				lines.append(line.rstrip("\n"))
+
 			new_offset = f.tell()
 
 		self.store.update(self.path, inode, new_offset)
 
 		return lines
 
+class Parser(ABC):
+	NAME = ""
+
+	@abstractmethod
+	def parse(self, line: str) -> dict:
+		pass
+
 class RawParser:
+	NAME = "raw"
+
+	# def parse(self, line: str) -> Optional[dict]:
 	def parse(self, line: str) -> dict:
 		return {"raw": line}
 
 NGINX_COMBINED_RE = re.compile(
-	r'^"?'
-	r'(?P<remote_addr>\S+) '
-	r'\S+ \S+ '
-	r'\[(?P<time_local>[^\]]+)\] '
-	r'"(?P<request>[^"]*)" '
-	r'(?P<status>\d{3}) '
-	r'(?P<body_bytes_sent>\S+) '
-	r'"(?P<http_referer>[^"]*)" '
-	r'"(?P<http_user_agent>[^"]*)"'
-	r'(?:\s+.*)?'
-	r'"?$'
+	r'^"?'                          # optional outer quote (some logs wrap entire line)
+	r'(?P<remote_addr>\S+) '        # $remote_addr (client IP)
+	r'\S+ \S+ '                     # $remote_user / ident (usually "-" "-")
+	r'\[(?P<time_local>[^\]]+)\] '  # [$time_local]
+	r'"(?P<request>[^"]*)" '        # "$request" (method path protocol)
+	r'(?P<status>\d{3}) '           # $status (HTTP status code)
+	r'(?P<body_bytes_sent>\S+) '    # $body_bytes_sent (may be "-")
+	r'"(?P<http_referer>[^"]*)" '   # "$http_referer"
+	r'"(?P<http_user_agent>[^"]*)"' # "$http_user_agent"
+	r'(?:\s+.*)?'                   # optional extra fields (e.g., request_id, upstream data)
+	r'"?$'                          # optional closing outer quote
+)
+
+OLS_ACCESS_RE = re.compile(
+	r'^"?'                         # optional outer quote
+	r'(?P<vhost>\S+) '             # %v
+	r'(?P<remote_addr>\S+) '       # %h
+	r'\S+ '                        # %l (ident, usually -)
+	r'\S+ '                        # %u (user, usually -)
+	r'\[(?P<time_local>[^\]]+)\] ' # %t
+	r'"(?P<request>[^"]*)" '       # "%r"
+	r'(?P<status>\d{3}) '          # %>s
+	r'(?P<body_bytes_sent>\S+)'    # %b
+	r'"?$'                         # optional closing quote
 )
 
 class NginxParser:
+	NAME = "nginx"
+
+	# def parse(self, line: str) -> Optional[dict]:
 	def parse(self, line: str) -> dict | None:
 		m = NGINX_COMBINED_RE.match(line)
 
@@ -107,8 +141,8 @@ class NginxParser:
 
 		return data
 
-class LogCollector(BaseCollector):
-	name = "logs"
+class LogCollector(Collector):
+	NAME = "logs"
 
 	def __init__(self,
 		patterns=None,
@@ -122,6 +156,14 @@ class LogCollector(BaseCollector):
 
 		self.parser = parser or RawParser()
 		self.state = LogStateStore(Path(state_file or ".ma_logstate.json"))
+
+	def name(self):
+		n = self.NAME
+
+		if self.parser.NAME:
+			n = f"{n}.{self.parser.NAME}"
+
+		return n
 
 	def collect(self):
 		for pattern in self.patterns:

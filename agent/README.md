@@ -1,7 +1,10 @@
 # TODO
 
-- [ ] Remove need to import parsers in `config.py`
-- [ ] Add a "name" field to non-autoload collectors
+- [ ] Remove need to import parsers in `config.py`.
+- [ ] Add a "name" field to non-autoload collectors.
+- [ ] Experiment with adding additional id components to the "logs" namespace.
+- [ ] What SHOULD happen when a Parser fails; will that `-> dict | None`?
+- [ ] Improve logging SUBSTANTIALLY (always show class producing message, etc)
 
 # systemd Setup
 

@@ -27,8 +27,8 @@ def discover_collectors():
 		for obj in module.__dict__.values():
 			if (
 				isinstance(obj, type)
-				and issubclass(obj, collector.BaseCollector)
-				and obj is not collector.BaseCollector
+				and issubclass(obj, collector.Collector)
+				and obj is not collector.Collector
 			):
 				collectors.append(obj)
 
@@ -41,9 +41,9 @@ def create_collectors():
 	classes = discover_collectors()
 	class_map = {cls.__name__: cls for cls in classes}
 
-	# If autoload is set...
+	# If AUTOLOAD is set...
 	for cls in classes:
-		if getattr(cls, "autoload", False):
+		if getattr(cls, "AUTOLOAD", False):
 			instances.append(cls())
 
 	# Otherwise, check for some config knobs!
@@ -124,16 +124,16 @@ class Agent:
 		while self._running:
 			for c in self.collectors:
 				try:
-					# payload = _build_event(c.name, c.collect())
-
-					# await self.dispatcher.enqueue(payload)
+					count = 0
 
 					for metrics in c.collect():
-						payload = _build_event(c.name, metrics)
+						payload = _build_event(c.name(), metrics)
 
 						await self.dispatcher.enqueue(payload)
 
-					logging.info(f"{c}: queued metrics successfully")
+						count += 1
+
+					logging.info(f"{c}: queued {count} events")
 
 				except Exception as e:
 					logging.warning(f"{c}: collect failed: {e}")

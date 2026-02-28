@@ -61,8 +61,8 @@ fugure implementations might introduce some kind of "retry" mechanism.
 
 Data payloads are gathered by *collectors*, all of which live in the `collector`
 module. When launched, the **Agent** discovers and enumerates *collector*
-objects; those that are marked `autoload = True` are always initialized and run.
-*Collectors* that are **not** marked `autoload` will look for explicit
+objects; those that are marked `AUTOLOAD = True` are always initialized and run.
+*Collectors* that are **not** marked `AUTOLOAD` will look for explicit
 configuration variables in `config.py`.
 
 **TODO**: More about collectors!
@@ -85,5 +85,5 @@ For the time being, all configuration is managed with a simple `config.py`
 
 # TODO
 
-- Add timestamp to HMAC verification to prevent replay attacks
-- Experiment with adding additional id components to the "logs" namespace
+- [ ] Add timestamp to HMAC verification to prevent replay attacks
+- [ ] Move both Node and Python code into explicit `massaffect` modules

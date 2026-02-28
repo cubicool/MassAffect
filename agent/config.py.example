@@ -5,8 +5,8 @@ from collector.log import NginxParser, RawParser
 CONTROLLER_URL = os.getenv("MASSAFFECT_URL", "https://localhost/collect")
 AGENT_SECRET = os.getenv("MASSAFFECT_SECRET", "YourHMACSecret")
 INTERVAL = int(os.getenv("MASSAFFECT_INTERVAL", "15"))
-SOCKET_NAME = "\0massaffect"
-COMPRESSION_THRESHOLD = 512
+COMPRESSION_THRESHOLD = int(os.getenv("MASSAFFECT_COMPRESSION_THRESHOLD", "512"))
+SOCKET_NAME = "\0" + os.getenv("MASSAFFECT_SOCKET", "massaffect")
 
 COLLECTORS = [
 	#{

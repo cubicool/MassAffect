@@ -1,12 +1,12 @@
 #vimrun! python3 -m collector.system
 
-from . import BaseCollector, cli_run
+from . import Collector, cli_run
 
 import socket
 
-class SystemCollector(BaseCollector):
-	name = "system"
-	autoload = True
+class SystemCollector(Collector):
+	NAME = "system"
+	AUTOLOAD = True
 
 	def collect(self):
 		yield {
