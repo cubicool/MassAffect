@@ -109,7 +109,7 @@ class Agent(Loggable):
 			path=config().SOCKET_NAME,
 		)
 
-		self.log.debug(f"Created socket: {config().SOCKET_NAME}")
+		self.log.debug(f"Created socket: {config().SOCKET_NAME.replace('\0', '@')}")
 
 		dispatcher_task = asyncio.create_task(self.dispatcher.run())
 		server_task = asyncio.create_task(self.server.serve_forever())
