@@ -138,13 +138,13 @@ class NginxParser:
 
 		if tl:
 			try:
-				data["event_ts"] = datetime.strptime(
+				data["time_local"] = datetime.strptime(
 					tl,
 					"%d/%b/%Y:%H:%M:%S %z"
 				).astimezone(timezone.utc).isoformat()
 
 			except Exception:
-				data["event_ts"] = None
+				data["time_local"] = None
 
 		# Split request line
 		if data["request"]:
