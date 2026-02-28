@@ -109,9 +109,9 @@ class Agent(Loggable):
 			path=config().SOCKET_NAME,
 		)
 
-		collector_task = asyncio.create_task(self.handle_collector())
-		server_task = asyncio.create_task(self.server.serve_forever())
 		dispatcher_task = asyncio.create_task(self.dispatcher.run())
+		server_task = asyncio.create_task(self.server.serve_forever())
+		collector_task = asyncio.create_task(self.handle_collector())
 
 		try:
 			await asyncio.gather(
