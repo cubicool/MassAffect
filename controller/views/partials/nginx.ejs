@@ -1,23 +1,23 @@
+<%# Refer to Agent massaffect.collector.log.NginxLogCollector for SCHEMA/metrics. %>
+
 <div class="nginx-log">
-	<!--<div>
-		<strong><%= metrics.remote_addr %></strong>
-		→ <%= metrics.method %> <%= metrics.path %>
-	</div>-->
+        <div class="nginx-line">
+                <strong><%= metrics.remote_addr %></strong>
+                → <%= metrics.method %>
+                <span class="truncate" title="<%= metrics.path %>">
+                        <%= metrics.path %>
+                </span>
+        </div>
 
-	<div class="nginx-line">
-		<strong><%= metrics.remote_addr %></strong>
-		→ <%= metrics.method %> 
-		<span class="truncate" title="<%= metrics.path %>">
-			<%= metrics.path %>
-		</span>
-	</div>
+        <div class="meta">
+                Status:
+                <span class="status-<%= metrics.status %>">
+                        <%= metrics.status %>
+                </span>
+                | Bytes: <%= metrics.body_bytes_sent %>
+        </div>
 
-	<div class="meta">
-		Status: <span class="status-<%= metrics.status %>"><%= metrics.status %></span>
-		| Bytes: <%= metrics.body_bytes_sent %>
-	</div>
-
-	<div class="ua">
-		<%= metrics.http_user_agent %>
-	</div>
+        <div class="ua">
+                <%= metrics.http_user_agent %>
+        </div>
 </div>

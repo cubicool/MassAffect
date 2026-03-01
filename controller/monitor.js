@@ -259,10 +259,9 @@ export default function monitorRoutes(redis, pg) {
 	router.get("/vps/:vps/logs", async (req, res) => {
 		const { vps } = req.params;
 		const { source } = req.query;
-
-		const key = `ma:vps:${vps}:logs:events`;
-
+		const key = `ma:vps:${vps}:logs.nginx:events`;
 		const items = await redis.lRange(key, 0, 199);
+
 		let parsed = items.map(i => JSON.parse(i));
 
 		if(source) {

@@ -48,6 +48,8 @@
 		.source {
 			color: #3fb950;
 			font-size: 12px;
+			margin-top: 3px;
+			margin-bottom: 3px;
 		}
 
 		.message {
@@ -127,10 +129,34 @@
 
 <script>
 	const vps = "<%= vps %>";
-	const collector = "logs";
+	const collector = "logs.nginx";
 	const activeFilter = "<%= source || "" %>";
 	const container = document.querySelector(".log-container");
 	const evtSource = new EventSource(`/monitor/stream/${vps}/${collector}`);
+
+	function timeAgo(date) {
+		const diffSec = Math.floor((Date.now() - date.getTime()) / 1000);
+
+		if(diffSec < 5) return "just now";
+		if(diffSec < 60) return diffSec + "s ago";
+		if(diffSec < 3600) return Math.floor(diffSec / 60) + "m ago";
+		if(diffSec < 86400) return Math.floor(diffSec / 3600) + "h ago";
+
+		return Math.floor(diffSec / 86400) + "d ago";
+	}
+
+	function refreshTimes() {
+		document.querySelectorAll("time.ts[datetime]").forEach(el => {
+			const iso = el.getAttribute("datetime");
+			const date = new Date(iso);
+
+			if(!isNaN(date.getTime())) {
+				console.log(`Setting ${el}`);
+
+				el.textContent = timeAgo(date);
+			}
+		});
+	}
 
 	evtSource.onmessage = function(event) {
 		const data = JSON.parse(event.data);
@@ -147,7 +173,12 @@
 		wrapper.innerHTML = data.html;
 
 		container.prepend(wrapper.firstElementChild);
+
+		refreshTimes();
 	};
+
+	setInterval(refreshTimes, 10000);
+	refreshTimes();
 </script>
 
 </body>

@@ -1,11 +1,24 @@
 #!/usr/bin/env bash
 
 function ma_psql() {
-	psql -U massaffect -h localhost -d massaffect
+	psql -U massaffect -h localhost -d massaffect ${*}
 }
 
 # To RESET EVERYTHING, run:
-# echo "TRUNCATE TABLE events RESTART IDENTITY;" | ma_psql
+if [ "${1}" = "purge" ]; then
+	echo "TRUNCATE TABLE events RESTART IDENTITY;" | ma_psql
+
+elif [ "${1}" = "logs.nginx" ]; then
+	echo "select metrics from events where collector = 'logs.nginx'" | ma_psql -t -A
+
+else
+	echo "Unknown command: ${1}"
+
+	exit 1
+fi
+
+# TODO: Temporary until I comment out the testing queries below!
+exit 0
 
 # echo "SELECT COUNT(*) FROM events;" | ma_psql
 # echo "SELECT * FROM events LIMIT 20;" | ma_psql
@@ -14,6 +27,15 @@ function ma_psql() {
 
 # Shows how many queries each IP made; insane!
 # echo "SELECT metrics->>'remote_addr', count(*) FROM events GROUP BY 1 ORDER BY 2 DESC;" | ma_psql
+
+# How long ago did the web queries occur?
+ma_psql <<EOF
+SELECT
+    NOW() - (metrics->>'time_local')::timestamptz AS age
+FROM events
+ORDER BY ts DESC
+LIMIT 10;
+EOF
 
 # Or, see who is hitting a particular route/path the most!
 ma_psql <<EOF

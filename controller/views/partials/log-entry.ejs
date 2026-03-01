@@ -1,6 +1,15 @@
 <div class="log-entry">
+	<%
+		const envelopeIso = new Date(event.ts * 1000).toISOString();
+		const canonicalIso = event.metrics?.time_local || envelopeIso;
+	%>
+
 	<div class="ts">
-		<%= new Date(event.ts * 1000).toISOString() %>
+		<%= envelopeIso %> (<time
+			class="ts"
+			datetime="<%= canonicalIso %>"
+			title="<%= canonicalIso %>"
+		></time>)
 	</div>
 
 	<div class="source">
