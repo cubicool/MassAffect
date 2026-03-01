@@ -18,7 +18,7 @@ class Agent(Loggable):
 	def __init__(self):
 		self.collectors = create_collectors()
 		# self.transport = transport.HTTPTransport()
-		self.transport = transport.DebugTransport()
+		self.transport = transport.DebugPrettyTransport()
 		self.dispatcher = dispatch.Dispatcher(self.transport, config().INTERVAL)
 		self.server = None
 

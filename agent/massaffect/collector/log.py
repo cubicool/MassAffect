@@ -87,39 +87,50 @@ class RawParser:
 	def parse(self, line: str) -> dict:
 		return {"raw": line}
 
-NGINX_COMBINED_RE = re.compile(
-	r'^"?'                          # optional outer quote (some logs wrap entire line)
-	r'(?P<remote_addr>\S+) '        # $remote_addr (client IP)
-	r'\S+ \S+ '                     # $remote_user / ident (usually "-" "-")
-	r'\[(?P<time_local>[^\]]+)\] '  # [$time_local]
-	r'"(?P<request>[^"]*)" '        # "$request" (method path protocol)
-	r'(?P<status>\d{3}) '           # $status (HTTP status code)
-	r'(?P<body_bytes_sent>\S+) '    # $body_bytes_sent (may be "-")
-	r'"(?P<http_referer>[^"]*)" '   # "$http_referer"
-	r'"(?P<http_user_agent>[^"]*)"' # "$http_user_agent"
-	r'(?:\s+.*)?'                   # optional extra fields (e.g., request_id, upstream data)
-	r'"?$'                          # optional closing outer quote
-)
-
-OLS_ACCESS_RE = re.compile(
-	r'^"?'                         # optional outer quote
-	r'(?P<vhost>\S+) '             # %v
-	r'(?P<remote_addr>\S+) '       # %h
-	r'\S+ '                        # %l (ident, usually -)
-	r'\S+ '                        # %u (user, usually -)
-	r'\[(?P<time_local>[^\]]+)\] ' # %t
-	r'"(?P<request>[^"]*)" '       # "%r"
-	r'(?P<status>\d{3}) '          # %>s
-	r'(?P<body_bytes_sent>\S+)'    # %b
-	r'"?$'                         # optional closing quote
-)
-
 class NginxParser:
+	"""
+	Produces metrics with the following structure:
+
+	{
+		remote_addr: str
+		time_local: ISO8601 str (UTC)
+
+		request: str
+		method: str
+		path: str
+		protocol: str
+
+		status: int
+		body_bytes_sent: int
+
+		http_referer: str
+		http_user_agent: str
+
+		source: str
+	}
+
+	Note that some additional post-processing is done in the `parse` method.
+	"""
+
 	NAME = "nginx"
+
+	COMBINED_RE = re.compile(
+		r'^"?'                          # optional outer quote (some logs wrap entire line)
+		r'(?P<remote_addr>\S+) '        # $remote_addr (client IP)
+		r'\S+ \S+ '                     # $remote_user / ident (usually "-" "-")
+		r'\[(?P<time_local>[^\]]+)\] '  # [$time_local]
+		r'"(?P<request>[^"]*)" '        # "$request" (method path protocol)
+		r'(?P<status>\d{3}) '           # $status (HTTP status code)
+		r'(?P<body_bytes_sent>\S+) '    # $body_bytes_sent (may be "-")
+		r'"(?P<http_referer>[^"]*)" '   # "$http_referer"
+		r'"(?P<http_user_agent>[^"]*)"' # "$http_user_agent"
+		r'(?:\s+.*)?'                   # optional extra fields (e.g., request_id, upstream data)
+		r'"?$'                          # optional closing outer quote
+	)
 
 	# def parse(self, line: str) -> Optional[dict]:
 	def parse(self, line: str) -> dict | None:
-		m = NGINX_COMBINED_RE.match(line)
+		m = self.COMBINED_RE.match(line)
 
 		if not m:
 			return None
@@ -154,6 +165,19 @@ class NginxParser:
 				data["method"], data["path"], data["protocol"] = parts
 
 		return data
+
+OLS_ACCESS_RE = re.compile(
+	r'^"?'                         # optional outer quote
+	r'(?P<vhost>\S+) '             # %v
+	r'(?P<remote_addr>\S+) '       # %h
+	r'\S+ '                        # %l (ident, usually -)
+	r'\S+ '                        # %u (user, usually -)
+	r'\[(?P<time_local>[^\]]+)\] ' # %t
+	r'"(?P<request>[^"]*)" '       # "%r"
+	r'(?P<status>\d{3}) '          # %>s
+	r'(?P<body_bytes_sent>\S+)'    # %b
+	r'"?$'                         # optional closing quote
+)
 
 class LogCollector(Collector):
 	NAME = "logs"

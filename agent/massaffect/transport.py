@@ -96,6 +96,29 @@ class DebugTransport(Transport):
 	async def close(self):
 		self.log.info("Closed")
 
+# Like the above, but "prettifies" the output; ONLY FOR USE in active debugging, as it breaks
+# the "one line per log event" rule.
+class DebugPrettyTransport(Transport):
+	async def send(self, payload):
+		headers, body = self._headers_body(payload)
+
+		if "Content-Encoding" in headers:
+			body = gzip.decompress(body)
+
+		decoded = body.decode()
+
+		try:
+			parsed = json.loads(decoded)
+			pretty = json.dumps(parsed, indent=2, sort_keys=True)
+
+		except Exception:
+			pretty = decoded  # fallback if not JSON
+
+		self.log.info(f"Would send: {pretty}")
+
+	async def close(self):
+		self.log.info("Closed")
+
 # Accumulates into the `.sent` member (for use in pytest, etc).
 class TestTransport(Transport):
 	def __init__(self):
