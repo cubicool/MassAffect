@@ -151,8 +151,6 @@
 			const date = new Date(iso);
 
 			if(!isNaN(date.getTime())) {
-				console.log(`Setting ${el}`);
-
 				el.textContent = timeAgo(date);
 			}
 		});

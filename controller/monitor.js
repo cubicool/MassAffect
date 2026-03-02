@@ -14,10 +14,7 @@ export default function monitorRoutes(redis, pg) {
 	}); */
 
 	const AGENTS = JSON.parse(fs.readFileSync(process.env.AGENT_FILE || "./agents.json"));
-
-	// key = "vps:collector"
-	// value = Set(res)
-	const clients = new Map();
+	const CLIENTS = new Map();
 
 	function verifyIP(req, res, next) {
 		const ip = req.ip.replace("::ffff:", "");
@@ -32,12 +29,11 @@ export default function monitorRoutes(redis, pg) {
 	}
 
 	function verifyHMAC(req, res, next) {
-		const SECRET = process.env.AGENT_SECRET;
 		const signature = req.headers["x-agent-signature"];
 		const body = JSON.stringify(req.body);
 
 		const expected = crypto
-			.createHmac("sha256", SECRET)
+			.createHmac("sha256", process.env.AGENT_SECRET)
 			.update(body)
 			.digest("hex")
 		;
@@ -64,50 +60,41 @@ export default function monitorRoutes(redis, pg) {
 
 	router.use(verifyIP);
 
-	router.get("/stream", (req, res) => {
-		res.setHeader("Content-Type", "text/event-stream");
-		res.setHeader("Cache-Control", "no-cache");
-		res.setHeader("Connection", "keep-alive");
-		res.flushHeaders?.();
-
-		const defaultKey = "global";
-
-		if(!clients.has(defaultKey)) {
-			clients.set(defaultKey, new Set());
-		}
-
-		clients.get(defaultKey).add(res);
-
-		res.write(`data: ${JSON.stringify({ status: "connected" })}\n\n`);
-
-		req.on("close", () => {
-			clients.get(defaultKey)?.delete(res);
-		});
-	});
-
 	router.get("/stream/:vps/:collector", (req, res) => {
 		const { vps, collector } = req.params;
-		const streamKey = `${vps}:${collector}`;
+		// const format = req.query.format || "html";
+		const key = `${vps}:${collector}`;
 
 		res.setHeader("Content-Type", "text/event-stream");
 		res.setHeader("Cache-Control", "no-cache");
 		res.setHeader("Connection", "keep-alive");
 		res.flushHeaders?.();
 
-		if(!clients.has(streamKey)) {
-			clients.set(streamKey, new Set());
+		if(!CLIENTS.has(key)) {
+			CLIENTS.set(key, new Set());
 		}
 
-		clients.get(streamKey).add(res);
+		// CLIENTS.get(key).add({res, format});
+		CLIENTS.get(key).add(res);
 
 		res.write(`data: ${JSON.stringify({ status: "connected" })}\n\n`);
 
 		req.on("close", () => {
-			clients.get(streamKey)?.delete(res);
+			/* const set = clients.get(key);
+			if(!set) return;
+
+			for(const client of set) {
+				if(client.res === res) {
+					set.delete(client);
+
+					break;
+				}
+			} */
+
+			CLIENTS.get(key)?.delete(res);
 		});
 	});
 
-	// POST collector endpoint
 	router.post("/collect", verifyHMAC, async(req, res) => {
 		const events = Array.isArray(req.body) ? req.body : [req.body];
 		const ip = req.ip.replace("::ffff:", "");
@@ -147,28 +134,29 @@ export default function monitorRoutes(redis, pg) {
 				console.error("Postgres insert failed:", err.message);
 			}
 
-			// Broadcast directly to any currently connected SSE clients (above).
-			// const message = `data: ${JSON.stringify(event)}\n\n`;
-
 			const rendered = await ejs.renderFile(
 				path.join(process.cwd(), "views/partials/log-entry.ejs"),
 				{ event }
 			);
 
 			const message = `data: ${JSON.stringify({ html: rendered })}\n\n`;
-			const globalClients = clients.get("global");
+			const clients = CLIENTS.get(`${hostname}:${event.collector}`);
 
-			if(globalClients) {
-				for(const client of globalClients) {
-					client.write(message);
-				}
-			}
+			if(clients) {
+				/* for(const client of clients || []) {
+					if(client.format === "json") {
+						client.res.write(`data: ${JSON.stringify(event)}\n\n`);
+					}
 
-			const scopedKey = `${hostname}:${event.collector}`;
-			const scopedClients = clients.get(scopedKey);
+					else {
+						// TODO: Resolve the `rendered` above...
+						// client.res.write(`data: ${JSON.stringify({ html })}\n\n`);
+						// client.write(message);
+					}
+				} */
 
-			if(scopedClients) {
-				for(const client of scopedClients) {
+				for(const client of clients) {
+					// client.res.write(message);
 					client.write(message);
 				}
 			}
