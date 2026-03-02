@@ -11,6 +11,11 @@ elif [ "${1}" = "vre" ]; then
 
 	redis-cli --raw LRANGE "ma:vps:${1}:events" 0 -1
 
+elif [ "${1}" = "scan" ]; then
+	redis-cli --scan | while read key; do
+		echo "$(redis-cli TYPE "${key}") ${key}"
+	done | sort
+
 else
 	echo "Uknown command: ${1}"
 

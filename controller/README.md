@@ -60,6 +60,10 @@ localhost:5432:massaffect:massaffect:yourpassword
 
 **NOTE**: Be sure to `chmod 600 ~/.pgpass`, this is *not optional*.
 
+# TODO
+
+- [ ] Batch Redis writes using redis.multi() for atomicity + reduced RTT
+
 # HTTP Codes Cheatsheet
 
 | Code | Description |

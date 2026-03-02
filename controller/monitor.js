@@ -117,9 +117,7 @@ export default function monitorRoutes(redis, pg) {
 
 		console.log("Received system metrics:", hostname);
 
-		// TODO: We'll eventually need/want these!
 		await redis.sAdd("ma:vps:index", hostname);
-		// await redis.sAdd(`ma:vps:${hostname}:collectors`, event.collector);
 
 		for(const event of events) {
 			if(!event.collector || !event.ts || !event.metrics) continue;
@@ -128,9 +126,7 @@ export default function monitorRoutes(redis, pg) {
 
 			await redis.lPush(key, JSON.stringify(event));
 			await redis.lTrim(key, 0, 1999);
-
-			// TODO: Is this correct?
-			await redis.sAdd(`ma:vps:${hostname}:collectors`, event.collector);
+			await redis.sAdd(`ma:vps:${hostname}:collectors:index`, event.collector);
 
 			// TODO: This is essentially our "cold storage" for historical analysis later.
 			try {
@@ -160,7 +156,6 @@ export default function monitorRoutes(redis, pg) {
 			);
 
 			const message = `data: ${JSON.stringify({ html: rendered })}\n\n`;
-
 			const globalClients = clients.get("global");
 
 			if(globalClients) {
@@ -184,43 +179,11 @@ export default function monitorRoutes(redis, pg) {
 
 	// GET viewer(history + live updates)
 	router.get("/", async (req, res) => {
-		const key = "ma:vps:xeno:logs:events";
+		// const key = "ma:vps:xeno:logs:events";
+		// const items = await redis.lRange(key, 0, 19);
+		// const parsed = items.map(i => JSON.parse(i));
 
-		const items = await redis.lRange(key, 0, 19);
-		const parsed = items.map(i => JSON.parse(i));
-
-		res.type("html").send(`
-			<html>
-			<body style="background:#111;color:#0f0;font-family:monospace;padding:20px;">
-			<h2>MassAffect Live</h2>
-			<pre id="output">${JSON.stringify(parsed, null, 2)}</pre>
-
-			<script>
-				const output = document.getElementById("output");
-				const evtSource = new EventSource("/monitor/stream");
-
-				evtSource.onmessage = function(event) {
-					const data = JSON.parse(event.data);
-
-					output.textContent =
-						JSON.stringify(data, null, 2)
-						+ "\\n\\n"
-						+ output.textContent
-					;
-				};
-
-				/* const interval = setInterval(() => {
-					res.write(": keepalive\n\n");
-				}, 15000);
-
-				req.on("close", () => {
-					clearInterval(interval);
-				}); */
-			</script>
-
-			</body>
-			</html>
-		`);
+		res.type("txt").send("TODO");
 	});
 
 	// TODO: This demos how the REST API would work; nothing fancy. Firefox has a cool, structured
@@ -256,10 +219,10 @@ export default function monitorRoutes(redis, pg) {
 	});
 
 	// Now, let's start building up VPS-specific viewing routes...
-	router.get("/vps/:vps/logs", async (req, res) => {
-		const { vps } = req.params;
+	router.get("/vps/:vps/logs/:log", async (req, res) => {
+		const { vps, log } = req.params;
 		const { source } = req.query;
-		const key = `ma:vps:${vps}:logs.nginx:events`;
+		const key = `ma:vps:${vps}:logs.${log}:events`;
 		const items = await redis.lRange(key, 0, 199);
 
 		let parsed = items.map(i => JSON.parse(i));
