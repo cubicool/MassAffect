@@ -16,36 +16,6 @@ function ma_psql_query_ip() {
 	EOF
 }
 
-# Busiest sites?
-ma_psql_ascii <<EOF
-SELECT
-  metrics->>'source' AS logfile,
-  count(*) AS hits
-FROM events
-GROUP BY logfile
-ORDER BY hits DESC;
-EOF
-
-exit 0
-
-# Rows with NO USER AGENT! Boo! :(
-function ma_psql_query_noua() {
-ma_psql <<EOF
-SELECT
-  metrics->>'remote_addr' AS ip,
-  count(*) AS hits
-FROM events
-WHERE metrics->>'http_user_agent' IS NULL
-   OR metrics->>'http_user_agent' = ''
-GROUP BY ip
-ORDER BY hits DESC;
-EOF
-}
-
-ma_psql_query_noua
-
-exit 0
-
 # To RESET EVERYTHING, run:
 if [ "${1}" = "purge" ]; then
 	echo "TRUNCATE TABLE events RESTART IDENTITY;" | ma_psql
@@ -84,6 +54,37 @@ else
 
 	exit 1
 fi
+
+exit 0
+
+# Busiest sites?
+ma_psql_ascii <<EOF
+SELECT
+  metrics->>'source' AS logfile,
+  count(*) AS hits
+FROM events
+GROUP BY logfile
+ORDER BY hits DESC;
+EOF
+
+# Rows with NO USER AGENT! Boo! :(
+function ma_psql_query_noua() {
+ma_psql <<EOF
+SELECT
+  metrics->>'remote_addr' AS ip,
+  count(*) AS hits
+FROM events
+WHERE metrics->>'http_user_agent' IS NULL
+   OR metrics->>'http_user_agent' = ''
+GROUP BY ip
+ORDER BY hits DESC;
+EOF
+}
+
+ma_psql_query_noua
+
+exit 0
+
 
 # TODO: Temporary until I comment out the testing queries below!
 exit 0

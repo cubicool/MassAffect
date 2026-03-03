@@ -1,29 +1,26 @@
 import express from "express";
-import dotenv from "dotenv";
 import morgan from "morgan";
 import path from "node:path";
 
-console.log("dotenv result:", dotenv.config());
-
 import { createClient } from 'redis';
-
-const redis = createClient();
-await redis.connect();
-
 import { Pool } from "pg";
 
-const pg = new Pool({
-	host: process.env.PG_HOST || "127.0.0.1",
-	port: process.env.PG_PORT || 5432,
-	user: process.env.PG_USER,
-	password: process.env.PG_PASSWORD,
-	database: process.env.PG_DATABASE,
-});
+import { cfg } from "./config.js";
+
+const config = cfg();
+
+// TODO: Setup Redis config!
+const redis = createClient();
+
+await redis.connect();
+
+const pg = new Pool({...config.system.postgres});
 
 pg.on("error", err => {
 	console.error("Unexpected PG error:", err);
 });
 
+// TODO: Move/rename this to something like `routes.js`!
 import monitorRoutes from "./monitor.js";
 
 const app = express();
@@ -35,8 +32,8 @@ app.set("views", path.join(process.cwd(), "views"));
 
 app.use(express.json({ limit: "10mb" }));
 app.use(morgan("dev"));
-app.use("/monitor", monitorRoutes(redis, pg));
+app.use("/monitor", monitorRoutes(config, redis, pg));
 
-app.listen(process.env.PORT, () => {
-	console.log(`Monitor server running on port ${process.env.PORT}`);
+app.listen(config.controller.port, () => {
+	console.log(`Monitor server running on port ${config.controller.port}`);
 });

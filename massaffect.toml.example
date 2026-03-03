@@ -17,3 +17,17 @@ type = "LogCollector"
 patterns = ["/home/*/logs/*_access.log", "/var/log/nginx/*access.log"]
 parser = "nginx"
 state_file = ".ma_nginx.json"
+
+[controller]
+port = 9191
+
+[controller.agents]
+"127.0.0.1" =  "localhost"
+"::1" = "localhost"
+
+[system.postgres]
+host = "127.0.0.1"
+port = 5432
+user = "massaffect"
+password = "password"
+database = "massaffect"

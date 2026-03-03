@@ -4,7 +4,7 @@ import ejs from "ejs";
 import path from "node:path";
 import fs from "node:fs";
 
-export default function monitorRoutes(redis, pg) {
+export default function monitorRoutes(config, redis, pg) {
 	const router = express.Router();
 
 	/* router.use((req, res, next) => {
@@ -13,8 +13,10 @@ export default function monitorRoutes(redis, pg) {
 		next();
 	}); */
 
-	const AGENTS = JSON.parse(fs.readFileSync(process.env.AGENT_FILE || "./agents.json"));
+	const AGENTS = config.controller.agents;
 	const CLIENTS = new Map();
+
+	console.log(`Using AGENTS: ${JSON.stringify(AGENTS, null, 2)}`);
 
 	function verifyIP(req, res, next) {
 		const ip = req.ip.replace("::ffff:", "");
@@ -33,7 +35,7 @@ export default function monitorRoutes(redis, pg) {
 		const body = JSON.stringify(req.body);
 
 		const expected = crypto
-			.createHmac("sha256", process.env.AGENT_SECRET)
+			.createHmac("sha256", config.agent.agent_secret)
 			.update(body)
 			.digest("hex")
 		;
@@ -150,7 +152,6 @@ export default function monitorRoutes(redis, pg) {
 					}
 
 					else {
-						// client.res.write(`data: ${JSON.stringify({ html: rendered })}\n\n`);
 						client.res.write(`data: ${JSON.stringify(rendered)}\n\n`);
 					}
 				}
