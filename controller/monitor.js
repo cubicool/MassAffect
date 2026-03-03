@@ -62,7 +62,7 @@ export default function monitorRoutes(redis, pg) {
 
 	router.get("/stream/:vps/:collector", (req, res) => {
 		const { vps, collector } = req.params;
-		// const format = req.query.format || "html";
+		const format = req.query.format || "html";
 		const key = `${vps}:${collector}`;
 
 		res.setHeader("Content-Type", "text/event-stream");
@@ -74,24 +74,26 @@ export default function monitorRoutes(redis, pg) {
 			CLIENTS.set(key, new Set());
 		}
 
-		// CLIENTS.get(key).add({res, format});
-		CLIENTS.get(key).add(res);
+		CLIENTS.get(key).add({res, format});
+
+		console.log(`Added ${res.socket.remotePort} (${format}) to CLIENTS`);
 
 		res.write(`data: ${JSON.stringify({ status: "connected" })}\n\n`);
 
 		req.on("close", () => {
-			/* const set = clients.get(key);
-			if(!set) return;
+			const clients = CLIENTS.get(key);
 
-			for(const client of set) {
+			if(!clients) return;
+
+			for(const client of clients) {
 				if(client.res === res) {
-					set.delete(client);
+					clients.delete(client);
+
+					console.log(`Removed ${res.socket.remotePort} from CLIENTS`);
 
 					break;
 				}
-			} */
-
-			CLIENTS.get(key)?.delete(res);
+			}
 		});
 	});
 
@@ -139,25 +141,18 @@ export default function monitorRoutes(redis, pg) {
 				{ event }
 			);
 
-			const message = `data: ${JSON.stringify({ html: rendered })}\n\n`;
 			const clients = CLIENTS.get(`${hostname}:${event.collector}`);
 
 			if(clients) {
-				/* for(const client of clients || []) {
+				for(const client of clients || []) {
 					if(client.format === "json") {
 						client.res.write(`data: ${JSON.stringify(event)}\n\n`);
 					}
 
 					else {
-						// TODO: Resolve the `rendered` above...
-						// client.res.write(`data: ${JSON.stringify({ html })}\n\n`);
-						// client.write(message);
+						// client.res.write(`data: ${JSON.stringify({ html: rendered })}\n\n`);
+						client.res.write(`data: ${JSON.stringify(rendered)}\n\n`);
 					}
-				} */
-
-				for(const client of clients) {
-					// client.res.write(message);
-					client.write(message);
 				}
 			}
 		}
@@ -222,6 +217,23 @@ export default function monitorRoutes(redis, pg) {
 		}
 
 		res.render("logs", { vps, events: parsed, source });
+	});
+
+	router.get("/json/vps/:vps/logs/:log", async (req, res) => {
+		const { vps, log } = req.params;
+		const { source } = req.query;
+		const key = `ma:vps:${vps}:logs.${log}:events`;
+		const items = await redis.lRange(key, 0, 199);
+
+		let parsed = items.map(i => JSON.parse(i));
+
+		if(source) {
+			parsed = parsed.filter(e =>
+				e.metrics?.source?.includes(source)
+			);
+		}
+
+		res.render("logs-json", { vps, events: parsed, source, collector: `logs.${log}` });
 	});
 
 	return router;

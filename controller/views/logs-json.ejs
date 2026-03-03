@@ -96,12 +96,16 @@
 		.status-404 { color: #f85149; }
 		.status-500 { color: #ff7b72; }
 	</style>
+
+	<!--<link href="https://unpkg.com/tabulator-tables@6.3.1/dist/css/tabulator.min.css" rel="stylesheet">-->
+	<link href="https://unpkg.com/tabulator-tables@6.3.1/dist/css/tabulator_midnight.min.css" rel="stylesheet">
+	<script type="text/javascript" src="https://unpkg.com/tabulator-tables@6.3.1/dist/js/tabulator.min.js"></script>
 </head>
 
 <body>
 
 <header>
-	MassAffect Logs :: <span class="vps-name"><%= vps %></span>
+	MassAffect Logs (JSON) :: <span class="vps-name"><%= vps %></span>
 
 	<% if(source) { %>
 		<span style="color:#f85149;">(filtered: <%= source %>)</span>
@@ -121,64 +125,47 @@
 	</button>
 </form>
 
-<div class="log-container">
-	<% events.forEach(event => { %>
-		<%- include("partials/log-entry", { event }) %>
-	<% }) %>
-</div>
+<div id="log-table"></div>
 
 <script>
-	const vps = "<%= vps %>";
-	const collector = "logs.nginx";
-	const activeFilter = "<%= source || "" %>";
-	const container = document.querySelector(".log-container");
-	const evtSource = new EventSource(`/monitor/stream/${vps}/${collector}`);
+  const initialEvents = <%- JSON.stringify(events) %>.map(event => ({
+    ts: new Date(event.ts * 1000).toLocaleTimeString(),
+    ip: event.metrics?.remote_addr,
+    method: event.metrics?.method,
+    path: event.metrics?.path,
+    status: event.metrics?.status
+  }));
 
-	function timeAgo(date) {
-		const diffSec = Math.floor((Date.now() - date.getTime()) / 1000);
+  const table = new Tabulator("#log-table", {
+    layout: "fitColumns",
+    height: "600px",
+    data: initialEvents,
+    columns: [
+      { title: "Time", field: "ts" },
+      { title: "IP", field: "ip" },
+      { title: "Method", field: "method" },
+      { title: "Path", field: "path" },
+      { title: "Status", field: "status" }
+    ],
+  });
 
-		if(diffSec < 5) return "just now";
-		if(diffSec < 60) return diffSec + "s ago";
-		if(diffSec < 3600) return Math.floor(diffSec / 60) + "m ago";
-		if(diffSec < 86400) return Math.floor(diffSec / 3600) + "h ago";
+  // const stream = new EventSource("/monitor/stream/<%= vps %>/<%= collector %>?format=json");
+  const stream = new EventSource("/monitor/stream/<%= vps %>/logs.nginx?format=json");
 
-		return Math.floor(diffSec / 86400) + "d ago";
-	}
+  stream.onmessage = (e) => {
+    const event = JSON.parse(e.data);
 
-	function refreshTimes() {
-		document.querySelectorAll("time.ts[datetime]").forEach(el => {
-			const iso = el.getAttribute("datetime");
-			const date = new Date(iso);
+    // Ignore connect/status events
+    if (!event.metrics) return;
 
-			if(!isNaN(date.getTime())) {
-				el.textContent = timeAgo(date);
-			}
-		});
-	}
-
-	evtSource.onmessage = function(event) {
-		const data = JSON.parse(event.data);
-
-		if(data.status === "connected") return;
-
-		if(activeFilter) {
-			// crude but effective: skip if filter not in HTML
-			// if(!data.html.includes(activeFilter)) return;
-			if(!data.includes(activeFilter)) return;
-		}
-
-		const wrapper = document.createElement("div");
-
-		// wrapper.innerHTML = data.html;
-		wrapper.innerHTML = data;
-
-		container.prepend(wrapper.firstElementChild);
-
-		refreshTimes();
-	};
-
-	setInterval(refreshTimes, 10000);
-	refreshTimes();
+    table.addRow({
+      ts: new Date(event.ts * 1000).toLocaleTimeString(),
+      ip: event.metrics.remote_addr,
+      method: event.metrics.method,
+      path: event.metrics.path,
+      status: event.metrics.status
+    }, true); // add to top
+  };
 </script>
 
 </body>
