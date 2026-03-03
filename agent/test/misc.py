@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
-#vimrun! ./test.py
+#vimrun! ./test/misc.py
 
+import os
 import sys
 import json
+import IPython
 
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
+
+import massaffect
+import massaffect.tconfig
 
 def test_parse_argv():
 	from collector import parse_argv
@@ -38,8 +43,16 @@ def test_setup_collectors():
 	for c in create_collectors():
 		print(f"{c}")
 
-if __name__ == "__main__":
-	test_logcollector_raw()
-	test_logcollector_nginx()
+def test_config():
+	os.environ.update({"MASSAFFECT_AGENT_SECRET": "supersecret"})
 
+	c = massaffect.tconfig.load_agent_config("massaffect.toml")
+
+	IPython.embed()
+
+if __name__ == "__main__":
+	# test_logcollector_raw()
+	# test_logcollector_nginx()
 	# test_setup_collectors()
+
+	test_config()

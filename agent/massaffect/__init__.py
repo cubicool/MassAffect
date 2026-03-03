@@ -2,10 +2,11 @@ import os
 import sys
 import json
 import logging
-import importlib
-import importlib.util
 import pkgutil
 import pathlib
+import importlib
+
+from .config import load_config
 
 class Loggable:
 	def __init_subclass__(cls):
@@ -23,21 +24,14 @@ def config():
 	path = os.environ.get("MASSAFFECT_CONFIG")
 
 	if not path:
-		raise RuntimeError(
-			"MASSAFFECT_CONFIG environment variable not set"
-		)
+		raise RuntimeError("MASSAFFECT_CONFIG environment variable not set")
 
 	path = pathlib.Path(path)
 
 	if not path.exists():
 		raise RuntimeError(f"Config file not found: {path}")
 
-	spec = importlib.util.spec_from_file_location("massaffect_config", path)
-	module = importlib.util.module_from_spec(spec)
-
-	spec.loader.exec_module(module)
-
-	_CONFIG = module
+	_CONFIG = load_config(path)
 
 	return _CONFIG
 
@@ -69,13 +63,8 @@ def create_collectors():
 		if getattr(cls, "AUTOLOAD", False):
 			instances.append(cls())
 
-	# Otherwise, check for some config knobs!
-	for entry in getattr(config(), "COLLECTORS", []):
-		cls = class_map.get(entry["type"])
-
-		if not cls:
-			raise ValueError(f"Unknown collector: {entry['type']}")
-
-		instances.append(cls(**entry.get("config", {})))
+	# Otherwise, add everything defined in the TOML config.
+	if config().agent and config().agent.collectors:
+		instances.extend(config().agent.collectors)
 
 	return instances

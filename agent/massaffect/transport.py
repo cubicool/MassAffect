@@ -11,7 +11,7 @@ from . import config, Loggable
 
 class Transport(ABC, Loggable):
 	def __init__(self):
-		self.log.debug(f"Compression threshold: {config().COMPRESSION_THRESHOLD}")
+		self.log.debug(f"Compression threshold: {config().agent.compression_threshold}")
 
 	def _headers_body(self, payload):
 		# Ensure we always send a list (defensive safety)
@@ -26,7 +26,7 @@ class Transport(ABC, Loggable):
 
 		# Sign the RAW JSON
 		signature = hmac.new(
-			config().AGENT_SECRET.encode(),
+			config().agent.agent_secret.encode(),
 			raw_body,
 			hashlib.sha256,
 		).hexdigest()
@@ -36,7 +36,7 @@ class Transport(ABC, Loggable):
 			"x-agent-signature": signature,
 		}
 
-		if len(raw_body) > config().COMPRESSION_THRESHOLD:
+		if len(raw_body) > config().agent.compression_threshold:
 			body = gzip.compress(raw_body)
 			ratio = len(body) / len(raw_body)
 
@@ -65,13 +65,13 @@ class HTTPTransport(Transport):
 			timeout=aiohttp.ClientTimeout(total=5)
 		)
 
-		self.log.info(f"Session opened to {config().CONTROLLER_URL}")
+		self.log.info(f"Session opened to {config().agent.controller_url}")
 
 	async def send(self, payload):
 		headers, body = self._headers_body(payload)
 
 		async with self.session.post(
-			config().CONTROLLER_URL,
+			config().agent.controller_url,
 			data=body,
 			headers=headers,
 		) as resp:

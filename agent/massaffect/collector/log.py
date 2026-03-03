@@ -114,6 +114,9 @@ class NginxParser:
 
 	NAME = "nginx"
 
+	# Typical Nginx log looks like:
+	#
+	# 192.168.1.10 - - [01/Mar/2026:04:14:48 +0000] "GET /robots.txt HTTP/1.1" 200 2479 "-" "MassAffect/0.0 Test"
 	COMBINED_RE = re.compile(
 		r'^"?'                          # optional outer quote (some logs wrap entire line)
 		r'(?P<remote_addr>\S+) '        # $remote_addr (client IP)

@@ -19,7 +19,7 @@ class Agent(Loggable):
 		self.collectors = create_collectors()
 		# self.transport = transport.HTTPTransport()
 		self.transport = transport.DebugPrettyTransport()
-		self.dispatcher = dispatch.Dispatcher(self.transport, config().INTERVAL)
+		self.dispatcher = dispatch.Dispatcher(self.transport, config().agent.interval)
 		self.server = None
 
 		self._running = True
@@ -95,21 +95,21 @@ class Agent(Loggable):
 				except Exception as e:
 					self.log.warning(f"{c}: collect failed: {e}")
 
-			await asyncio.sleep(config().INTERVAL)
+			await asyncio.sleep(config().agent.interval)
 
 	async def run(self):
 		self.log.info("Running")
 
-		if not config().SOCKET_NAME.startswith("\0"):
-			if os.path.exists(config().SOCKET_NAME):
-				os.unlink(config().SOCKET_NAME)
+		if not config().agent.socket_name.startswith("\0"):
+			if os.path.exists(config().agent.socket_name):
+				os.unlink(config().agent.socket_name)
 
 		self.server = await asyncio.start_unix_server(
 			self.handle_socket,
-			path=config().SOCKET_NAME,
+			path=config().agent.socket_name,
 		)
 
-		self.log.debug(f"Created socket: {config().SOCKET_NAME.replace('\0', '@')}")
+		self.log.debug(f"Created socket: {config().agent.socket_name.replace('\0', '@')}")
 
 		dispatcher_task = asyncio.create_task(self.dispatcher.run())
 		server_task = asyncio.create_task(self.server.serve_forever())

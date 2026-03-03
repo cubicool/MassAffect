@@ -1,5 +1,4 @@
-agent/__pycache__
-agent/config.py
+massaffect.toml
 agent/massaffect/__pycache__
 agent/massaffect/collector/__pycache__
 controller/.env

@@ -1,0 +1,19 @@
+[agent]
+# hostname = "foo"
+interval = 15
+compression_threshold = 512
+socket_name = "massaffect"
+controller_url = "https://localhost/collect"
+agent_secret = "${MASSAFFECT_AGENT_SECRET}"
+
+[[agent.collectors]]
+type = "LogCollector"
+patterns = ["/var/log/syslog", "/var/log/auth.log"]
+parser = "raw"
+state_file = ".ma_raw.json"
+
+[[agent.collectors]]
+type = "LogCollector"
+patterns = ["/home/*/logs/*_access.log", "/var/log/nginx/*access.log"]
+parser = "nginx"
+state_file = ".ma_nginx.json"
