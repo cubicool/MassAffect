@@ -20,9 +20,6 @@ pg.on("error", err => {
 	console.error("Unexpected PG error:", err);
 });
 
-// TODO: Move/rename this to something like `routes.js`!
-import monitorRoutes from "./monitor.js";
-
 const app = express();
 
 // This line ensures we get the REAL IP from OLS, which is proxying us.
@@ -32,7 +29,16 @@ app.set("views", path.join(process.cwd(), "views"));
 
 app.use(express.json({ limit: "10mb" }));
 app.use(morgan("dev"));
-app.use("/monitor", monitorRoutes(config, redis, pg));
+
+/* import monitorRoutes from "./routes/monitor.js";
+import collectRoutes from "./routes/collect.js";
+
+app.use("/monitor", monitorRoutes(redis, pg));
+app.use("/collect", collectRoutes(redis, pg)); */
+
+import loadRoutes from "./routes/index.js";
+
+loadRoutes(app, redis, pg);
 
 app.listen(config.controller.port, () => {
 	console.log(`Monitor server running on port ${config.controller.port}`);

@@ -1,7 +1,7 @@
 #!/usr/bin/env -S node --experimental-repl-await
 
 import repl from "repl";
-import { cfg } from "./config.js";
+import { cfg } from "../src/config.js";
 
 const r = repl.start({
 	prompt: "massaffect> ",
