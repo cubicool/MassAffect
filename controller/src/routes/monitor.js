@@ -1,22 +1,13 @@
 import express from "express";
-import crypto from "node:crypto";
-import ejs from "ejs";
-import path from "node:path";
-import fs from "node:fs";
 
 import { verifyIP, verifyHMAC } from "../middleware/auth.js";
 import { addClient, removeClient } from "../state/clients.js";
+import { Events } from "../lib.js";
 
 export default function monitorRoutes(redis, pg) {
 	const router = express.Router();
 
 	router.use(verifyIP);
-
-	/* router.use((req, res, next) => {
-		console.log("Monitor router saw:", req.method, req.originalUrl);
-
-		next();
-	}); */
 
 	router.get("/stream/:vps/:collector", (req, res) => {
 		const { vps, collector } = req.params;
@@ -41,7 +32,6 @@ export default function monitorRoutes(redis, pg) {
 		});
 	});
 
-	// GET viewer(history + live updates)
 	router.get("/", async (req, res) => {
 		// const key = "ma:vps:xeno:logs:events";
 		// const items = await redis.lRange(key, 0, 19);
@@ -50,71 +40,21 @@ export default function monitorRoutes(redis, pg) {
 		res.type("txt").send("TODO");
 	});
 
-	// TODO: This demos how the REST API would work; nothing fancy. Firefox has a cool, structured
-	// JSON viewer it fires up for this. :)
-	router.get("/json/:vps/:collector", async (req, res) => {
-		const { vps, collector } = req.params;
-		const { source } = req.query;
-
-		const key = `ma:vps:${vps}:${collector}:events`;
-		const items = await redis.lRange(key, 0, -1);
-
-		let parsed = items.map(i => JSON.parse(i));
-
-		if(source) {
-			parsed = parsed.filter(e =>
-				e.metrics?.source?.includes(source)
-			);
-		}
-
-		res.json(parsed);
-	});
-
-	// Another REST demo for querying the known VPSes.
-	router.get("/json/vps", async (req, res) => {
-		const vps = await redis.sMembers("ma:vps:index");
-		const result = {};
-
-		for(const host of vps) {
-			result[host] = await redis.sMembers(`ma:vps:${host}:collectors`);
-		}
-
-		res.json(result);
-	});
-
 	// Now, let's start building up VPS-specific viewing routes...
 	router.get("/vps/:vps/logs/:log", async (req, res) => {
 		const { vps, log } = req.params;
 		const { source } = req.query;
-		const key = `ma:vps:${vps}:logs.${log}:events`;
-		const items = await redis.lRange(key, 0, 199);
+		const events = await Events.getLogEvents(redis, { vps, log, source });
 
-		let parsed = items.map(i => JSON.parse(i));
-
-		if(source) {
-			parsed = parsed.filter(e =>
-				e.metrics?.source?.includes(source)
-			);
-		}
-
-		res.render("logs", { vps, events: parsed, source });
+		res.render("logs", { vps, events, source });
 	});
 
-	router.get("/json/vps/:vps/logs/:log", async (req, res) => {
+	router.get("/vps/:vps/logsjson/:log", async (req, res) => {
 		const { vps, log } = req.params;
 		const { source } = req.query;
-		const key = `ma:vps:${vps}:logs.${log}:events`;
-		const items = await redis.lRange(key, 0, 199);
+		const events = await Events.getLogEvents(redis, { vps, log, source });
 
-		let parsed = items.map(i => JSON.parse(i));
-
-		if(source) {
-			parsed = parsed.filter(e =>
-				e.metrics?.source?.includes(source)
-			);
-		}
-
-		res.render("logs-json", { vps, events: parsed, source, collector: `logs.${log}` });
+		res.render("logs-json", { vps, events, source, collector: `logs.${log}` });
 	});
 
 	return router;
