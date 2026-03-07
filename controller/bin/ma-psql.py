@@ -10,6 +10,14 @@ import builtins
 from contextlib import contextmanager
 from rich import print
 from rich.json import JSON
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+
+# Always append the "project root" (setup as `ROOT` here) so that the main Python code is found.
+sys.path.insert(0, str(ROOT))
+
+import massaffect
 
 # You'll need to either insert your password here (BAD), or create a proper `~/.pgpass` file
 # (GOOD); see the Controller README for instructions on creating this file.

@@ -1,7 +1,5 @@
 massaffect.toml
-agent/massaffect/__pycache__
-agent/massaffect/collector/__pycache__
-controller/.env
-controller/agents.json
+massaffect/__pycache__
+massaffect/collector/__pycache__
 controller/node_modules
 controller/package-lock.json
