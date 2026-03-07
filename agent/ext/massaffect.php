@@ -66,6 +66,31 @@ function massaffect_send(array $payload) {
 	socket_close($sock);
 }
 
+function massaffect_client_ip(): ?string {
+	$keys = [
+		'HTTP_CF_CONNECTING_IP',
+		'HTTP_X_REAL_IP',
+		'HTTP_X_FORWARDED_FOR',
+		'REMOTE_ADDR'
+	];
+
+	foreach($keys as $key) {
+		if(!empty($_SERVER[$key])) {
+
+			$ip = $_SERVER[$key];
+
+			// X-Forwarded-For may contain multiple IPs
+			if($key === 'HTTP_X_FORWARDED_FOR') {
+				$ip = explode(',', $ip)[0];
+			}
+
+			return trim($ip);
+		}
+	}
+
+	return null;
+}
+
 register_shutdown_function(function () use ($__ma_start_time, $__ma_start_ru, $__ma_request_id) {
 		$end_time = microtime(true);
 		$duration = $end_time - $__ma_start_time;
@@ -128,13 +153,14 @@ register_shutdown_function(function () use ($__ma_start_time, $__ma_start_ru, $_
 
 		// Access/Log Stuff -----------------------------------------------------------------------
 
-		$remote_addr   = $_SERVER["REMOTE_ADDR"] ?? null;
-		$forwarded_for = $_SERVER["HTTP_X_FORWARDED_FOR"] ?? null;
-		$host          = $_SERVER["HTTP_HOST"] ?? null;
-		$protocol      = $_SERVER["SERVER_PROTOCOL"] ?? null;
-		$referer       = $_SERVER["HTTP_REFERER"] ?? null;
-		$user_agent    = $_SERVER["HTTP_USER_AGENT"] ?? null;
-		$content_len   = $_SERVER["CONTENT_LENGTH"] ?? null;
+		// $remote_addr   = $_SERVER["REMOTE_ADDR"] ?? null;
+		// $forwarded_for = $_SERVER["HTTP_X_FORWARDED_FOR"] ?? null;
+		$remote_addr = massaffect_client_ip(); // $_SERVER["REMOTE_ADDR"] ?? null;
+		$host        = $_SERVER["HTTP_HOST"] ?? null;
+		$protocol    = $_SERVER["SERVER_PROTOCOL"] ?? null;
+		$referer     = $_SERVER["HTTP_REFERER"] ?? null;
+		$user_agent  = $_SERVER["HTTP_USER_AGENT"] ?? null;
+		$content_len = $_SERVER["CONTENT_LENGTH"] ?? null;
 
 		$data = [
 			"request_id"     => $__ma_request_id,
