@@ -85,6 +85,7 @@ For the time being, all configuration is managed with a simple `config.py`
 
 # TODO
 
+- [ ] Add a `typer`-based TUI using the streaming SSE API.
 - [ ] Add timestamp to HMAC verification to prevent replay attacks.
 - [ ] Move both Node and Python code into explicit `massaffect` modules.
 - [ ] Add a 3rd high-level class `reporter` (sharing code with Agent).
