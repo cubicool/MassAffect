@@ -11,7 +11,7 @@ from . import dispatch
 
 logging.basicConfig(
 	level=logging.DEBUG,
-	format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+	format="%(asctime)s %(levelname)s [%(name)s] %(message)s"
 )
 
 class Agent(application.Application):
@@ -19,18 +19,14 @@ class Agent(application.Application):
 		super().__init__()
 
 		self.collectors = create_collectors()
-		# self.transport = transport.HTTPTransport()
 		self.transport = transport.DebugPrettyTransport()
-		self.dispatcher = dispatch.Dispatcher(
-			self.transport,
-			config().agent.interval
-		)
-
+		# self.transport = transport.HTTPTransport()
+		self.dispatcher = dispatch.Dispatcher(self.transport, config().agent.interval)
 		self.server = None
 
 	async def handle_socket(self, reader, writer):
 		try:
-			data = await reader.read(4096)
+			data = await reader.read()
 
 			if not data:
 				return
@@ -79,10 +75,10 @@ class Agent(application.Application):
 			return {
 				"collector": collector_name,
 				"ts": int(time.time()),
-				"metrics": metrics,
+				"metrics": metrics
 			}
 
-		while not self.shutdown.is_set():
+		while self.running:
 			for c in self.collectors:
 				try:
 					count = 0
@@ -100,17 +96,12 @@ class Agent(application.Application):
 					self.log.warning(f"{c}: collect failed: {e}")
 
 			try:
-				await asyncio.wait_for(
-					self.shutdown.wait(),
-					timeout=config().agent.interval
-				)
+				await self.wait_stop(config().agent.interval)
 
 			except asyncio.TimeoutError:
 				pass
 
-	async def run(self):
-		self.log.info("Running")
-
+	async def startup(self):
 		socket_name = config().agent.socket_name
 
 		if not socket_name.startswith("\0"):
@@ -119,20 +110,19 @@ class Agent(application.Application):
 
 		self.server = await asyncio.start_unix_server(
 			self.handle_socket,
-			path=socket_name,
+			path=socket_name
 		)
 
 		self.log.debug(f"Created socket: {socket_name.replace(chr(0), '@')}")
 
-		# Register runtime tasks
-		self.add_task(self.dispatcher.run())
-		self.add_task(self.server.serve_forever())
-		self.add_task(self.handle_collector())
+	def tasks(self):
+		return [
+			self.dispatcher.run(),
+			self.server.serve_forever(),
+			self.handle_collector()
+		]
 
-		# Run until stopped
-		await self.run_tasks()
-
-		# Shutdown cleanup
+	async def shutdown(self):
 		if self.server:
 			self.server.close()
 
@@ -144,7 +134,7 @@ class Agent(application.Application):
 async def main():
 	agent = Agent()
 
-	agent.install_signal_handlers()
+	agent.use_signal_handlers()
 
 	await agent.run()
 

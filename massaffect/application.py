@@ -5,29 +5,49 @@ from . import Loggable
 
 class Application(Loggable):
 	def __init__(self):
-		self.shutdown = asyncio.Event()
+		self._shutdown = asyncio.Event()
 		self._tasks = []
 
+	async def startup(self):
+		pass
+
+	async def shutdown(self):
+		pass
+
+	def tasks(self):
+		return []
+
+	@property
+	def running(self):
+		return not self._shutdown.is_set()
+
+	async def wait_stop(self, interval):
+		await asyncio.wait_for(self._shutdown.wait(), timeout=interval)
+
 	def stop(self):
-		if self.shutdown.is_set():
+		if self._shutdown.is_set():
 			return
 
 		self.log.info("Stopping")
 
-		self.shutdown.set()
+		self._shutdown.set()
 
-		# Wake tasks immediately
 		for t in list(self._tasks):
 			t.cancel()
 
-	def add_task(self, coro):
-		task = asyncio.create_task(coro)
+	def use_signal_handlers(self):
+		loop = asyncio.get_running_loop()
 
-		self._tasks.append(task)
+		loop.add_signal_handler(signal.SIGTERM, self.stop)
+		loop.add_signal_handler(signal.SIGINT, self.stop)
 
-		return task
+	async def run(self):
+		await self.startup()
 
-	async def run_tasks(self):
+		# start background tasks
+		for coro in self.tasks():
+			self._tasks.append(asyncio.create_task(coro))
+
 		try:
 			await asyncio.gather(*self._tasks, return_exceptions=True)
 
@@ -38,11 +58,6 @@ class Application(Loggable):
 				t.cancel()
 
 			await asyncio.gather(*self._tasks, return_exceptions=True)
+			await self.shutdown()
 
 			self.log.info("Stopping tasks complete")
-
-	def install_signal_handlers(self):
-		loop = asyncio.get_running_loop()
-
-		loop.add_signal_handler(signal.SIGTERM, self.stop)
-		loop.add_signal_handler(signal.SIGINT, self.stop)
