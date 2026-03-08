@@ -1,9 +1,12 @@
+# NOTE: All shell-style variables ARE EXPAND (and if seen, become mandatory)...
+
 [agent]
 # hostname = "foo"
 interval = 15
 compression_threshold = 512
 socket_name = "massaffect"
 controller_url = "https://localhost/collect"
+# As indicated above, this environment variable MUST be set!
 agent_secret = "${MASSAFFECT_AGENT_SECRET}"
 
 [[agent.collectors]]
@@ -29,5 +32,6 @@ port = 9191
 host = "127.0.0.1"
 port = 5432
 user = "massaffect"
+# You could use something like ${MASSAFFECT_PG_PASSWORD} if you wanted...
 password = "password"
-database = "massaffect"
+dbname = "massaffect"

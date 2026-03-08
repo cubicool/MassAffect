@@ -3,11 +3,9 @@
 import sys
 import json
 import asyncio
-import psycopg
 import typer
 import builtins
 
-from contextlib import contextmanager
 from rich import print
 from rich.json import JSON
 from pathlib import Path
@@ -17,31 +15,9 @@ ROOT = Path(__file__).resolve().parents[2]
 # Always append the "project root" (setup as `ROOT` here) so that the main Python code is found.
 sys.path.insert(0, str(ROOT))
 
-import massaffect
-
-# You'll need to either insert your password here (BAD), or create a proper `~/.pgpass` file
-# (GOOD); see the Controller README for instructions on creating this file.
-DSN = "postgresql://massaffect@localhost/massaffect"
+from massaffect.db import execute
 
 app = typer.Typer()
-
-@contextmanager
-def connection():
-	with psycopg.connect(DSN, row_factory=psycopg.rows.dict_row) as con:
-		yield con
-
-@contextmanager
-def cursor():
-	with connection() as con:
-		with con.cursor() as cur:
-			yield cur
-
-@contextmanager
-def execute(q, *args):
-	with cursor() as cur:
-		cur.execute(q, args or None)
-
-		yield cur
 
 ENVELOPE = typer.Option(
 	False,
