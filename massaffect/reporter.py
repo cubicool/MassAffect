@@ -51,7 +51,7 @@ class Reporter(application.Application):
 					self.log.warning(f"{r}: evaluation failed: {e}")
 
 			try:
-				await self.wait_stop(config().reporter.interval)
+				await self.wait_shutdown(config().reporter.interval)
 
 			except asyncio.TimeoutError:
 				pass

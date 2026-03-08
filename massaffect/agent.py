@@ -96,7 +96,7 @@ class Agent(application.Application):
 					self.log.warning(f"{c}: collect failed: {e}")
 
 			try:
-				await self.wait_stop(config().agent.interval)
+				await self.wait_shutdown(config().agent.interval)
 
 			except asyncio.TimeoutError:
 				pass
