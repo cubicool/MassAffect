@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 # Always append the "project root" (setup as `ROOT` here) so that the main Python code is found.
 sys.path.insert(0, str(ROOT))
 
-from massaffect.db import execute
+from massaffect.database import execute
 
 app = typer.Typer()
 

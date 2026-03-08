@@ -8,10 +8,14 @@ import IPython
 
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
+ROOT = Path(__file__).resolve().parents[2]
+
+# Always append the "project root" (setup as `ROOT` here) so that the main Python code is found.
+sys.path.insert(0, str(ROOT))
 
 import massaffect
-import massaffect.tconfig
+
+from massaffect.config import load_config
 
 def test_parse_argv():
 	from collector import parse_argv
@@ -46,7 +50,7 @@ def test_setup_collectors():
 def test_config():
 	os.environ.update({"MASSAFFECT_AGENT_SECRET": "supersecret"})
 
-	c = massaffect.tconfig.load_agent_config("massaffect.toml")
+	c = load_config(f"{ROOT}/massaffect.toml")
 
 	IPython.embed()
 
