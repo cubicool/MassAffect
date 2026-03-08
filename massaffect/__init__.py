@@ -39,13 +39,22 @@ def create_collectors():
 	import massaffect.collector
 
 	# If AUTOLOAD is set...
-	instances = create_plugins(
-		massaffect.collector,
-		massaffect.collector.Collector
-	)
+	instances = create_plugins(massaffect.collector, massaffect.collector.Collector)
 
 	# Otherwise, add everything defined in the TOML config.
-	if config().agent and config().agent.collectors:
+	if hasattr(config(), "agent") and hasattr(config().agent, "collectors"):
 		instances.extend(config().agent.collectors)
+
+	return instances
+
+def create_reports():
+	import massaffect.report
+
+	# If AUTOLOAD is set...
+	instances = create_plugins(massaffect.report, massaffect.report.Report)
+
+	# Otherwise, add everything defined in the TOML config.
+	if hasattr(config(), "reporter") and hasattr(config().reporter, "reports"):
+		instances.extend(config().reporter.reports)
 
 	return instances

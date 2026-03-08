@@ -1,5 +1,6 @@
 massaffect.toml
 massaffect/__pycache__
 massaffect/collector/__pycache__
+massaffect/report/__pycache__
 controller/node_modules
 controller/package-lock.json
