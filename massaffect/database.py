@@ -1,31 +1,33 @@
 import psycopg
+import redis
 
-from psycopg.rows import dict_row
 from contextlib import contextmanager
 
 from . import config
 
-def connect():
+def pg_connect():
 	return psycopg.connect(
 		**config().system.postgres,
-		row_factory=dict_row
+		row_factory=psycopg.rows.dict_row
 	)
 
 @contextmanager
-def connection():
-	# with psycopg.connect(DSN, row_factory=psycopg.rows.dict_row) as con:
-	with connect() as con:
+def pg_connection():
+	with pg_connect() as con:
 		yield con
 
 @contextmanager
-def cursor():
-	with connection() as con:
+def pg_cursor():
+	with pg_connection() as con:
 		with con.cursor() as cur:
 			yield cur
 
 @contextmanager
-def execute(q, *args):
-	with cursor() as cur:
+def pg_execute(q, *args):
+	with pg_cursor() as cur:
 		cur.execute(q, args or None)
 
 		yield cur
+
+def redis_connect():
+	return redis.Redis(decode_responses=True)

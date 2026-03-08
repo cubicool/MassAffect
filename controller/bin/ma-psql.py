@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 # Always append the "project root" (setup as `ROOT` here) so that the main Python code is found.
 sys.path.insert(0, str(ROOT))
 
-from massaffect.database import execute
+from massaffect.database import pg_execute
 
 app = typer.Typer()
 
@@ -60,7 +60,7 @@ def query(
 
 		q = sys.stdin.read()
 
-	with execute(q) as rows:
+	with pg_execute(q) as rows:
 		for row in envelope_rows(envelope, rows):
 			pretty_print(pretty, row)
 
@@ -75,7 +75,7 @@ def dump(
 ):
 	"""Dumps the specified number of newest `events` rows."""
 
-	with execute("""
+	with pg_execute("""
 		SELECT vps, collector, ts, metrics
 		FROM events
 		ORDER BY ts DESC
@@ -91,7 +91,7 @@ def dumpall(
 ):
 	"""Dumps the entire `events` table; use with caution."""
 
-	with execute("SELECT vps, collector, ts, metrics FROM events") as rows:
+	with pg_execute("SELECT vps, collector, ts, metrics FROM events") as rows:
 		for row in envelope_rows(True, rows):
 			pretty_print(False, row)
 
