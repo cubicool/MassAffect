@@ -120,8 +120,7 @@ app.add_typer(events_table, name="events-table")
 def create():
 	"""Creates the main `events` table, with partitioning logic."""
 
-	print("TODO: Implement this!")
-	print("""
+	with pg_execute("""
 		CREATE TABLE events (
 			agent TEXT NOT NULL,
 			collector TEXT NOT NULL,
@@ -169,7 +168,8 @@ def create():
 		BEFORE INSERT ON events
 		FOR EACH ROW
 		EXECUTE FUNCTION ensure_events_partition();
-	""")
+	""") as res:
+		print(res.statusmessage)
 
 @events_table.command()
 def partition(
@@ -204,12 +204,12 @@ def partition(
 
 	ts_from, ts_to = _month_bounds(month, year)
 
-	print("TODO: Implement this!")
-	print(f"""
+	with pg_execute(f"""
 		CREATE TABLE IF NOT EXISTS events_{year}_{month:02d}
 		PARTITION OF events
 		FOR VALUES FROM ({ts_from}) TO ({ts_to});
-	""")
+	""") as res:
+		print(res.statusmessage)
 
 # Purge the `events` table and start over.
 @events_table.command()
