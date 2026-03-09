@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>MassAffect :: <%= vps %> Logs</title>
+	<title>MassAffect :: <%= agent %> Logs</title>
 
 	<style>
 		body {
@@ -19,7 +19,7 @@
 			font-size: 18px;
 		}
 
-		.vps-name {
+		.agent-name {
 			color: #58a6ff;
 		}
 
@@ -101,7 +101,7 @@
 <body>
 
 <header>
-	MassAffect Logs :: <span class="vps-name"><%= vps %></span>
+	MassAffect Logs :: <span class="agent-name"><%= agent %></span>
 
 	<% if(source) { %>
 		<span style="color:#f85149;">(filtered: <%= source %>)</span>
@@ -109,9 +109,9 @@
 </header>
 
 <form method="GET" style="padding: 16px 24px; background:#161b22;">
-	<input 
-		type="text" 
-		name="source" 
+	<input
+		type="text"
+		name="source"
 		placeholder="Filter by source..."
 		value="<%= source || '' %>"
 		style="background:#0d1117;color:#c9d1d9;border:1px solid #30363d;padding:6px 10px;border-radius:4px;"
@@ -128,11 +128,11 @@
 </div>
 
 <script>
-	const vps = "<%= vps %>";
+	const agent = "<%= agent %>";
 	const collector = "logs.nginx";
 	const activeFilter = "<%= source || "" %>";
 	const container = document.querySelector(".log-container");
-	const evtSource = new EventSource(`/monitor/stream/${vps}/${collector}`);
+	const evtSource = new EventSource(`/monitor/stream/${agent}/${collector}`);
 
 	function timeAgo(date) {
 		const diffSec = Math.floor((Date.now() - date.getTime()) / 1000);

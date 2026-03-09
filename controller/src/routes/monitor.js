@@ -9,10 +9,10 @@ export default function monitorRoutes(redis, pg) {
 
 	router.use(verifyIP);
 
-	router.get("/stream/:vps/:collector", (req, res) => {
-		const { vps, collector } = req.params;
+	router.get("/stream/:agent/:collector", (req, res) => {
+		const { agent, collector } = req.params;
 		const format = req.query.format || "html";
-		const key = `${vps}:${collector}`;
+		const key = `${agent}:${collector}`;
 
 		res.setHeader("Content-Type", "text/event-stream");
 		res.setHeader("Cache-Control", "no-cache");
@@ -33,28 +33,28 @@ export default function monitorRoutes(redis, pg) {
 	});
 
 	router.get("/", async (req, res) => {
-		// const key = "ma:vps:xeno:logs:events";
+		// const key = "ma:agent:xeno:logs:events";
 		// const items = await redis.lRange(key, 0, 19);
 		// const parsed = items.map(i => JSON.parse(i));
 
 		res.type("txt").send("TODO");
 	});
 
-	// Now, let's start building up VPS-specific viewing routes...
-	router.get("/vps/:vps/logs/:log", async (req, res) => {
-		const { vps, log } = req.params;
+	// Now, let's start building up Agent-specific viewing routes...
+	router.get("/agent/:agent/logs/:log", async (req, res) => {
+		const { agent, log } = req.params;
 		const { source } = req.query;
-		const events = await Events.getLogEvents(redis, { vps, log, source });
+		const events = await Events.getLogEvents(redis, { agent, log, source });
 
-		res.render("logs", { vps, events, source });
+		res.render("logs", { agent, events, source });
 	});
 
-	router.get("/vps/:vps/logsjson/:log", async (req, res) => {
-		const { vps, log } = req.params;
+	router.get("/agent/:agent/logsjson/:log", async (req, res) => {
+		const { agent, log } = req.params;
 		const { source } = req.query;
-		const events = await Events.getLogEvents(redis, { vps, log, source });
+		const events = await Events.getLogEvents(redis, { agent, log, source });
 
-		res.render("logs-json", { vps, events, source, collector: `logs.${log}` });
+		res.render("logs-json", { agent, events, source, collector: `logs.${log}` });
 	});
 
 	return router;

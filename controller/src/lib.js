@@ -1,13 +1,13 @@
-async function getEvents(redis, { vps, collector, limit=200 }) {
-	const key = `ma:vps:${vps}:${collector}:events`;
+async function getEvents(redis, { agent, collector, limit=200 }) {
+	const key = `ma:agent:${agent}:${collector}:events`;
 
 	const items = await redis.lRange(key, 0, limit - 1);
 
 	return items.map(i => JSON.parse(i));
 }
 
-/* async function getLogEvents(redis, { vps, log, source, limit=200 }) {
-	let events = await getEvents(redis, { vps, collector: `logs.${log}`, limit });
+/* async function getLogEvents(redis, { agent, log, source, limit=200 }) {
+	let events = await getEvents(redis, { agent, collector: `logs.${log}`, limit });
 
 	if(source) {
 		events = events.filter(e =>

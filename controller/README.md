@@ -1,7 +1,7 @@
 # Redis Format
 
 ```
-ma:vps:{vps}:{collector}
+ma:agent:{agent}:{collector}
 ```
 
 # JSON Format
@@ -39,7 +39,7 @@ CREATE DATABASE massaffect OWNER massaffect;
 
 CREATE TABLE IF NOT EXISTS events (
     id BIGSERIAL PRIMARY KEY,
-    vps TEXT NOT NULL,
+    agent TEXT NOT NULL,
     collector TEXT NOT NULL,
     ts BIGINT NOT NULL,
     metrics JSONB NOT NULL

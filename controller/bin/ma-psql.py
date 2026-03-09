@@ -76,7 +76,7 @@ def dump(
 	"""Dumps the specified number of newest `events` rows."""
 
 	with pg_execute("""
-		SELECT vps, collector, ts, metrics
+		SELECT agent, collector, ts, metrics
 		FROM events
 		ORDER BY ts DESC
 		LIMIT %s
@@ -91,7 +91,7 @@ def dumpall(
 ):
 	"""Dumps the entire `events` table; use with caution."""
 
-	with pg_execute("SELECT vps, collector, ts, metrics FROM events") as rows:
+	with pg_execute("SELECT agent, collector, ts, metrics FROM events") as rows:
 		for row in envelope_rows(True, rows):
 			pretty_print(False, row)
 
@@ -123,14 +123,14 @@ def create():
 	print("TODO: Implement this!")
 	print("""
 		CREATE TABLE events (
-			vps TEXT NOT NULL,
+			agent TEXT NOT NULL,
 			collector TEXT NOT NULL,
 			ts BIGINT NOT NULL,
 			metrics JSONB
 		) PARTITION BY RANGE (ts);
 
-		CREATE INDEX idx_events_vps_collector_ts
-		ON events (vps, collector, ts DESC);
+		CREATE INDEX idx_events_agent_collector_ts
+		ON events (agent, collector, ts DESC);
 
 		CREATE OR REPLACE FUNCTION ensure_events_partition()
 		RETURNS TRIGGER AS $$
@@ -216,10 +216,13 @@ def partition(
 def destroy():
 	"""Truncates/restarts the `events` table."""
 
-	print("TODO: Implement this!")
-	print("""
-		TRUNCATE TABLE events RESTART IDENTITY;
-	""")
+	if not typer.confirm("This will permanently destroy all `events`; continue?"):
+		typer.echo("Aborted.")
+
+		raise typer.Exit()
+
+	with pg_execute("TRUNCATE TABLE events RESTART IDENTITY;") as res:
+		print(res.statusmessage)
 
 # TODO: Move these (and many more) into the Reporter subsystem, once I start it.
 """

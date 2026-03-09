@@ -20,21 +20,21 @@ export default function collectRoutes(redis, pg) {
 
 		console.log("Received system metrics:", hostname);
 
-		await redis.sAdd("ma:vps:index", hostname);
+		await redis.sAdd("ma:agent:index", hostname);
 
 		for(const event of events) {
 			if(!event.collector || !event.ts || !event.metrics) continue;
 
-			const key = `ma:vps:${hostname}:${event.collector}:events`;
+			const key = `ma:agent:${hostname}:${event.collector}:events`;
 
 			await redis.lPush(key, JSON.stringify(event));
 			await redis.lTrim(key, 0, 1999);
-			await redis.sAdd(`ma:vps:${hostname}:collectors:index`, event.collector);
+			await redis.sAdd(`ma:agent:${hostname}:collectors:index`, event.collector);
 
 			// TODO: This is essentially our "cold storage" for historical analysis later.
 			try {
 				await pg.query(
-					`INSERT INTO events (vps, collector, ts, metrics)
+					`INSERT INTO events (agent, collector, ts, metrics)
 					VALUES ($1, $2, $3, $4)`,
 					[
 						hostname,

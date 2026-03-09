@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>MassAffect :: <%= vps %> Logs</title>
+	<title>MassAffect :: <%= agent %> Logs</title>
 
 	<style>
 		body {
@@ -19,7 +19,7 @@
 			font-size: 18px;
 		}
 
-		.vps-name {
+		.agent-name {
 			color: #58a6ff;
 		}
 
@@ -105,7 +105,7 @@
 <body>
 
 <header>
-	MassAffect Logs (JSON) :: <span class="vps-name"><%= vps %></span>
+	MassAffect Logs (JSON) :: <span class="agent-name"><%= agent %></span>
 
 	<% if(source) { %>
 		<span style="color:#f85149;">(filtered: <%= source %>)</span>
@@ -113,9 +113,9 @@
 </header>
 
 <form method="GET" style="padding: 16px 24px; background:#161b22;">
-	<input 
-		type="text" 
-		name="source" 
+	<input
+		type="text"
+		name="source"
 		placeholder="Filter by source..."
 		value="<%= source || '' %>"
 		style="background:#0d1117;color:#c9d1d9;border:1px solid #30363d;padding:6px 10px;border-radius:4px;"
@@ -149,8 +149,8 @@
     ],
   });
 
-  // const stream = new EventSource("/monitor/stream/<%= vps %>/<%= collector %>?format=json");
-  const stream = new EventSource("/monitor/stream/<%= vps %>/logs.nginx?format=json");
+  // const stream = new EventSource("/monitor/stream/<%= agent %>/<%= collector %>?format=json");
+  const stream = new EventSource("/monitor/stream/<%= agent %>/logs.nginx?format=json");
 
   stream.onmessage = (e) => {
     const event = JSON.parse(e.data);

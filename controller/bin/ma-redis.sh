@@ -4,12 +4,12 @@
 if [ "${1}" = "purge" ]; then
 	redis-cli flushdb
 
-# VPS Range Events (vre); requires second argument like "foo:system" or
+# Agent Range Events (are); requires second argument like "foo:system" or
 # "bar:logs.nginx", dumping all matching values.
-elif [ "${1}" = "vre" ]; then
+elif [ "${1}" = "are" ]; then
 	shift 1
 
-	redis-cli --raw LRANGE "ma:vps:${1}:events" 0 -1
+	redis-cli --raw LRANGE "ma:agent:${1}:events" 0 -1
 
 # ???
 elif [ "${1}" = "scan" ]; then
@@ -23,6 +23,6 @@ else
 	exit 1
 fi
 
-# redis-cli SCAN 0 MATCH 'ma:vps:*' COUNT 100
-# redis-cli KEYS 'ma:vps:*'
+# redis-cli SCAN 0 MATCH 'ma:agent:*' COUNT 100
+# redis-cli KEYS 'ma:agent:*'
 # ./ma-redis.sh | jq 'select(.metrics.source == "/var/log/syslog")'
