@@ -7,7 +7,8 @@ import gzip
 
 from abc import ABC, abstractmethod
 
-from . import config, Loggable
+from . import config
+from .util import Loggable
 
 class Transport(ABC, Loggable):
 	def __init__(self):

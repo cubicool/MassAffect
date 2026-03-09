@@ -1,6 +1,6 @@
 import asyncio
 
-from . import Loggable
+from .util import Loggable
 
 class Dispatcher(Loggable):
 	def __init__(self, transport, interval):

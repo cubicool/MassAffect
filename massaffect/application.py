@@ -1,7 +1,7 @@
 import asyncio
 import signal
 
-from . import Loggable
+from .util import Loggable
 
 class Application(Loggable):
 	def __init__(self):

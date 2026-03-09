@@ -1,7 +1,9 @@
 from abc import ABC, abstractmethod
 from typing import Iterator, Any
 
-class Collector(ABC):
+from ..util import Loggable
+
+class Collector(ABC, Loggable):
 	NAME = "base"
 	AUTOLOAD = False
 

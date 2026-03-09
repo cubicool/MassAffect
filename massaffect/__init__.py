@@ -1,17 +1,12 @@
 import os
 import sys
 import json
-import logging
 import pkgutil
 import pathlib
 import importlib
 
 from .config import load_config
 from .plugins import create_plugins
-
-class Loggable:
-	def __init_subclass__(cls):
-		cls.log = logging.getLogger(f"{cls.__name__}")
 
 _CONFIG = None
 

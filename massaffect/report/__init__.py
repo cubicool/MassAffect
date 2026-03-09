@@ -1,14 +1,20 @@
 from abc import ABC, abstractmethod
 from typing import Iterator, Any
+from enum import Enum
 
-from .. import Loggable
+from ..util import Loggable
 
 class Report(ABC, Loggable):
+	class Mode(Enum):
+		AGENT = "AGENT"
+		GLOBAL = "GLOBAL"
+
 	NAME = "base"
 	AUTOLOAD = False
+	MODE = Mode.AGENT
 
 	@abstractmethod
-	def evaluate(self) -> Iterator[dict[str, Any]]:
+	def evaluate(self, *args, **kwargs) -> Iterator[dict[str, Any]]:
 		pass
 
 	def name(self) -> str:
