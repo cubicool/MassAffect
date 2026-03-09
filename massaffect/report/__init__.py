@@ -1,7 +1,9 @@
 from abc import ABC, abstractmethod
 from typing import Iterator, Any
 
-class Report(ABC):
+from .. import Loggable
+
+class Report(ABC, Loggable):
 	NAME = "base"
 	AUTOLOAD = False
 

@@ -4,6 +4,7 @@ import time
 
 from . import config, create_reports
 from . import application
+from . import database
 from . import transport
 from . import dispatch
 
@@ -26,6 +27,7 @@ class Reporter(application.Application):
 		Periodically evaluates reports and enqueues notifications.
 		"""
 
+		# TODO: Should we use `_build_info` instead?
 		def _build_event(report_name, info):
 			return {
 				"report": report_name,
@@ -38,7 +40,7 @@ class Reporter(application.Application):
 				try:
 					count = 0
 
-					for info in r.evaluate():
+					for info in r.evaluate(self.redis, self.pg):
 						payload = _build_event(r.name(), info)
 
 						await self.dispatcher.enqueue(payload)
@@ -57,7 +59,16 @@ class Reporter(application.Application):
 				pass
 
 	async def startup(self):
-		self.log.info("Reporter starting")
+		self.log.info("Starting")
+
+		try:
+			self.redis = database.redis_connect()
+			self.pg = database.pg_connect()
+
+		except Exception as e:
+			raise RuntimeError(f"Couldn't establish database connections: {e}")
+
+		self.log.info("Connected to Redis/Postgres databases")
 
 	def tasks(self):
 		return [

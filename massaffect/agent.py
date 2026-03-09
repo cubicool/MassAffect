@@ -102,6 +102,8 @@ class Agent(application.Application):
 				pass
 
 	async def startup(self):
+		self.log.info("Starting")
+
 		socket_name = config().agent.socket_name
 
 		if not socket_name.startswith("\0"):
