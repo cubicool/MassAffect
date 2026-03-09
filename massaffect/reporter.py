@@ -37,20 +37,29 @@ class Reporter(application.Application):
 
 		while self.running:
 			for r in self.reports:
-				try:
-					count = 0
+				# try:
+				# 	count = 0
+                #
+				# 	for info in r.evaluate(self.redis, self.pg):
+				# 		payload = _build_event(r.name(), info)
+                #
+				# 		await self.dispatcher.enqueue(payload)
+                #
+				# 		count += 1
+                #
+				# 	self.log.info(f"{r}: queued {count} notifications")
+                #
+				# except Exception as e:
+				# 	self.log.warning(f"{r}: evaluation failed: {e}")
 
-					for info in r.evaluate(self.redis, self.pg):
-						payload = _build_event(r.name(), info)
+				self.log.critical(f"TODO: r={r}")
 
-						await self.dispatcher.enqueue(payload)
+				if r.MODE == r.Mode.AGENT:
+					for agent in self.redis.agents:
+						self.log.critical(f"TODO: r.evaluate({agent}, self.redis, self.pg)")
 
-						count += 1
-
-					self.log.info(f"{r}: queued {count} notifications")
-
-				except Exception as e:
-					self.log.warning(f"{r}: evaluation failed: {e}")
+				else:
+						self.log.critical(f"TODO: r.evaluate(self.redis, self.pg)")
 
 			try:
 				await self.wait_shutdown(config().reporter.interval)
@@ -62,7 +71,7 @@ class Reporter(application.Application):
 		self.log.info("Starting")
 
 		try:
-			self.redis = database.redis_connect()
+			self.redis = database.RedisDatabase()
 			self.pg = database.pg_connect()
 
 		except Exception as e:

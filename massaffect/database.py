@@ -29,5 +29,25 @@ def pg_execute(q, *args):
 
 		yield cur
 
-def redis_connect():
-	return redis.Redis(decode_responses=True)
+# def redis_connect():
+# 	return redis.Redis(decode_responses=True)
+
+class RedisDatabase:
+	def __init__(self, redis):
+		self.r = redis.Redis(decode_responses=True)
+
+	@property
+	def agents(self):
+		return self.r.smembers("ma:agent:index")
+
+	def collectors(self, agent):
+		return self.r.smembers(f"ma:agent:{agent}:collectors:index")
+
+	def report_state(self, agent, report):
+		return self.r.get(f"ma:agent:{agent}:report:{report}")
+
+	def set_report_state(self, agent, report, payload):
+		self.r.set(f"ma:agent:{agent}:report:{report}", json.dumps(payload))
+
+	def clear_report_state(self, agent, report):
+		self.r.delete(f"ma:agent:{agent}:report:{report}")
