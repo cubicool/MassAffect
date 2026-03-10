@@ -84,7 +84,7 @@ class Agent(application.Application):
 					count = 0
 
 					for metrics in c.collect():
-						payload = _build_event(c.name(), metrics)
+						payload = _build_event(c.name, metrics)
 
 						await self.dispatcher.enqueue(payload)
 

@@ -8,6 +8,8 @@ from . import database
 from . import transport
 from . import dispatch
 
+from .report import Report
+
 logging.basicConfig(
 	level=logging.DEBUG,
 	format="%(asctime)s %(levelname)s [%(name)s] %(message)s"
@@ -41,7 +43,7 @@ class Reporter(application.Application):
 				# 	count = 0
                 #
 				# 	for info in r.evaluate(self.redis, self.pg):
-				# 		payload = _build_event(r.name(), info)
+				# 		payload = _build_event(r.name, info)
                 #
 				# 		await self.dispatcher.enqueue(payload)
                 #
@@ -52,14 +54,24 @@ class Reporter(application.Application):
 				# except Exception as e:
 				# 	self.log.warning(f"{r}: evaluation failed: {e}")
 
-				self.log.critical(f"TODO: r={r}")
+				self.log.critical(f"TODO: r.name={r.name} r.mode={r.MODE}")
 
 				if r.MODE == r.Mode.AGENT:
 					for agent in self.redis.agents:
-						self.log.critical(f"TODO: r.evaluate({agent}, self.redis, self.pg)")
+						try:
+							res = r.evaluate(Report.Request(
+								redis=self.redis,
+								pg=self.pg,
+								agent=agent
+							))
+
+							self.log.info(f"{r}: evaluated; res={res}")
+
+						except Exception as e:
+							self.log.warning(f"{r}: evaluation failed: {e}")
 
 				else:
-						self.log.critical(f"TODO: r.evaluate(self.redis, self.pg)")
+					self.log.critical(f"TODO: r.evaluate(self.redis, self.pg)")
 
 			try:
 				await self.wait_shutdown(config().reporter.interval)

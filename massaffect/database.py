@@ -32,8 +32,11 @@ def pg_execute(q, *args):
 # def redis_connect():
 # 	return redis.Redis(decode_responses=True)
 
+class PostgresDatabase:
+	pass
+
 class RedisDatabase:
-	def __init__(self, redis):
+	def __init__(self):
 		self.r = redis.Redis(decode_responses=True)
 
 	@property
