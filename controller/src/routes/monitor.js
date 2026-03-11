@@ -1,7 +1,7 @@
 import express from "express";
 
 import { verifyIP, verifyHMAC } from "../middleware/auth.js";
-import { addClient, removeClient } from "../state/clients.js";
+import { Client, addClient, removeClient } from "../state/clients.js";
 import { Events } from "../lib.js";
 
 export default function monitorRoutes(redis, pg) {
@@ -9,7 +9,7 @@ export default function monitorRoutes(redis, pg) {
 
 	router.use(verifyIP);
 
-	router.get("/stream/:agent/:collector", (req, res) => {
+	/* router.get("/stream/:agent/:collector", (req, res) => {
 		const { agent, collector } = req.params;
 		const format = req.query.format || "html";
 		const key = `${agent}:${collector}`;
@@ -30,6 +30,23 @@ export default function monitorRoutes(redis, pg) {
 
 			console.log(`Removed ${res.socket.remotePort} from CLIENTS`);
 		});
+	}); */
+
+	router.get("/stream/:agent/:collector", (req, res) => {
+		const { agent, collector } = req.params;
+		const key = `${agent}:${collector}`;
+
+		const client = new Client(req, res);
+
+		addClient(key, client);
+
+		client.send({ status: "connected" });
+
+		/* req.on("close", () => {
+			removeClient(key, client);
+
+			client.close();
+		}); */
 	});
 
 	router.get("/", async (req, res) => {

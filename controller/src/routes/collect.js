@@ -43,7 +43,6 @@ export default function collectRoutes(redis, pg) {
 						event.metrics
 					]
 				);
-
 			}
 
 			catch(err) {
@@ -55,7 +54,7 @@ export default function collectRoutes(redis, pg) {
 				{ event }
 			);
 
-			const clients = getClients(`${hostname}:${event.collector}`);
+			/* const clients = getClients(`${hostname}:${event.collector}`);
 
 			if(clients) {
 				for(const client of clients || []) {
@@ -67,6 +66,10 @@ export default function collectRoutes(redis, pg) {
 						client.res.write(`data: ${JSON.stringify(rendered)}\n\n`);
 					}
 				}
+			} */
+
+			for(const client of getClients(`${hostname}:${event.collector}`)) {
+				client.send(rendered);
 			}
 		}
 
