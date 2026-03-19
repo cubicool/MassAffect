@@ -69,7 +69,7 @@ export default function collectRoutes(redis, pg) {
 			} */
 
 			for(const client of getClients(`${hostname}:${event.collector}`)) {
-				client.send(rendered);
+				client.send(event);
 			}
 		}
 

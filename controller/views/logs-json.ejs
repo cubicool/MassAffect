@@ -150,7 +150,7 @@
   });
 
   // const stream = new EventSource("/monitor/stream/<%= agent %>/<%= collector %>?format=json");
-  const stream = new EventSource("/monitor/stream/<%= agent %>/logs.nginx?format=json");
+  const stream = new EventSource("/monitor/stream/<%= agent %>/logs.nginx");
 
   stream.onmessage = (e) => {
     const event = JSON.parse(e.data);

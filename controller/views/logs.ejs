@@ -100,6 +100,92 @@
 
 <body>
 
+<script>
+
+function renderRaw(metrics) {
+	console.log(`TODO: renderRaw(${metrics})`)
+}
+
+function renderNginx(metrics) {
+	const el = document.createElement("div");
+
+	el.className = "nginx-log";
+
+	el.innerHTML = `
+		<div class="nginx-line">
+			<strong>${metrics.remote_addr}</strong>
+			→ ${metrics.method}
+
+			<span class="truncate" title="${metrics.path}">
+				${metrics.path}
+			</span>
+		</div>
+
+		<div class="meta">
+			Status:
+			<span class="status-${metrics.status}">
+				${metrics.status}
+			</span> | Bytes: ${metrics.body_bytes_sent}
+		</div>
+
+		<div class="ua">
+			${metrics.http_user_agent}
+		</div>
+	`;
+
+	return el;
+}
+
+function renderLogEntry(event) {
+	const envelopeIso = new Date(event.ts * 1000).toISOString();
+	const canonicalIso = event.metrics?.time_local || envelopeIso;
+	const metrics = event.metrics || {};
+
+	let template = renderRaw;
+
+	if (metrics.source?.includes("access.log")) {
+		template = renderNginx;
+	}
+
+	const container = document.createElement("div");
+	container.className = "log-entry";
+
+	container.innerHTML = `
+		<div class="ts">
+				${envelopeIso}
+				(<time class="ts"
+					datetime="${canonicalIso}"
+					title="${canonicalIso}">
+				</time>)
+		</div>
+
+		<div class="source">
+				${metrics.source || "unknown source"}
+		</div>
+	`;
+
+	container.appendChild(template(metrics));
+
+	// document.querySelector("#log").prepend(container);
+	document.querySelector(".log-container").prepend(container);
+}
+
+/* const renderers = [
+	{
+		match: m => m.source?.includes("access.log"),
+		render: renderNginx
+	}
+];
+
+function resolveRenderer(metrics) {
+	for (const r of renderers) {
+		if (r.match(metrics)) return r.render;
+	}
+
+	return renderRaw;
+} */
+</script>
+
 <header>
 	MassAffect Logs :: <span class="agent-name"><%= agent %></span>
 
@@ -122,9 +208,9 @@
 </form>
 
 <div class="log-container">
-	<% events.forEach(event => { %>
-		<%- include("partials/log-entry", { event }) %>
-	<% }) %>
+	<%# events.forEach(event => { %>
+		<%#- include("partials/log-entry", { event }) %>
+	<%# }) %>
 </div>
 
 <script>
@@ -156,7 +242,7 @@
 		});
 	}
 
-	evtSource.onmessage = function(event) {
+	/* evtSource.onmessage = function(event) {
 		const data = JSON.parse(event.data);
 
 		if(data.status === "connected") return;
@@ -178,7 +264,19 @@
 	};
 
 	setInterval(refreshTimes, 10000);
-	refreshTimes();
+	refreshTimes(); */
+
+	evtSource.onmessage = (msg) => {
+		const event = JSON.parse(msg.data);
+
+		if(event.status === "connected") return;
+
+		renderLogEntry(event);
+		refreshTimes();
+	};
+
+	// setInterval(refreshTimes, 10000);
+	// refreshTimes();
 </script>
 
 </body>

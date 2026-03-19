@@ -9,29 +9,6 @@ export default function monitorRoutes(redis, pg) {
 
 	router.use(verifyIP);
 
-	/* router.get("/stream/:agent/:collector", (req, res) => {
-		const { agent, collector } = req.params;
-		const format = req.query.format || "html";
-		const key = `${agent}:${collector}`;
-
-		res.setHeader("Content-Type", "text/event-stream");
-		res.setHeader("Cache-Control", "no-cache");
-		res.setHeader("Connection", "keep-alive");
-		res.flushHeaders?.();
-
-		addClient(key, {res, format});
-
-		console.log(`Added ${res.socket.remotePort} (${format}) to CLIENTS`);
-
-		res.write(`data: ${JSON.stringify({ status: "connected" })}\n\n`);
-
-		req.on("close", () => {
-			removeClient(key, {res, format});
-
-			console.log(`Removed ${res.socket.remotePort} from CLIENTS`);
-		});
-	}); */
-
 	router.get("/stream/:agent/:collector", (req, res) => {
 		const { agent, collector } = req.params;
 		const key = `${agent}:${collector}`;
@@ -41,12 +18,6 @@ export default function monitorRoutes(redis, pg) {
 		addClient(key, client);
 
 		client.send({ status: "connected" });
-
-		/* req.on("close", () => {
-			removeClient(key, client);
-
-			client.close();
-		}); */
 	});
 
 	router.get("/", async (req, res) => {
