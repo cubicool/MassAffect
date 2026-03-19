@@ -198,6 +198,7 @@ class LogCollector(Collector):
 		self.parser = parser or RawParser()
 		self.state = LogStateStore(Path(state_file or ".ma_logstate.json"))
 
+	@property
 	def name(self):
 		n = self.NAME
 
