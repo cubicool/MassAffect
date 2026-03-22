@@ -11,6 +11,9 @@ def pg_connect():
 		row_factory=psycopg.rows.dict_row
 	)
 
+async def pg_connect_async():
+	return await psycopg.AsyncConnection.connect(**config().system.postgres)
+
 @contextmanager
 def pg_connection():
 	with pg_connect() as con:

@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 # Always append the "project root" (setup as `ROOT` here) so that the main Python code is found.
 sys.path.insert(0, str(ROOT))
 
-from massaffect.database import pg_execute
+from massaffect.database import pg_execute, pg_connect_async
 
 app = typer.Typer()
 
@@ -100,14 +100,17 @@ def listen():
 	"""A simple demo for async/await realtime listening to Postgres."""
 
 	async def _listen():
-		async with await psycopg.AsyncConnection.connect(DSN) as conn:
-			await cur.execute("LISTEN events")
+		async with await pg_connect_async() as conn:
+			await conn.set_autocommit(True)
 
-			print("Listening for notifications...")
+			async with conn.cursor() as cur:
+				await cur.execute("LISTEN events")
 
-			async for notify in conn.notifies():
-				print("Channel:", notify.channel)
-				print("Payload:", notify.payload)
+				print("Listening for notifications...")
+
+				async for notify in conn.notifies():
+					print("Channel:", notify.channel)
+					print("Payload:", notify.payload)
 
 	asyncio.run(_listen())
 
