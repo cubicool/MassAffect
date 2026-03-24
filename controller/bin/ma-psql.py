@@ -15,7 +15,15 @@ ROOT = Path(__file__).resolve().parents[2]
 # Always append the "project root" (setup as `ROOT` here) so that the main Python code is found.
 sys.path.insert(0, str(ROOT))
 
-from massaffect.database import pg_execute, pg_connect_async
+from massaffect.database import (
+	pg_execute,
+	pg_connect_async,
+	sql_compact,
+	ago,
+	filter_agent,
+	filter_collector,
+	build_where
+)
 
 app = typer.Typer()
 
@@ -29,6 +37,18 @@ PRETTY = typer.Option(
 	False,
 	"--pretty", "-p",
 	help="Print with color, newlines and indentation."
+)
+
+AGENT = typer.Option(
+	None,
+	"--agent", "-a",
+	help="Specify a single AGENT to restrict queries to."
+)
+
+COLLECTOR = typer.Option(
+	None,
+	"--collector", "-c",
+	help="Specify a single COLLECTOR to restrict queries to."
 )
 
 def pretty_print(pretty, data):
@@ -70,17 +90,29 @@ def dump(
 		...,
 		help="Number of total rows to dump, sorted by envelope timestamp."
 	),
+	agent: str=AGENT,
+	collector: str=COLLECTOR,
 	envelope: bool=ENVELOPE,
 	pretty: bool=PRETTY
 ):
 	"""Dumps the specified number of newest `events` rows."""
 
-	with pg_execute("""
+	where, args = build_where(
+		filter_agent(agent),
+		filter_collector(collector),
+	)
+
+	sql = f"""
 		SELECT agent, collector, ts, metrics
 		FROM events
+		WHERE {where}
 		ORDER BY ts DESC
 		LIMIT %s
-	""", num) as rows:
+	"""
+
+	args.append(num)
+
+	with pg_execute(sql, *args) as rows:
 		for row in envelope_rows(envelope, rows):
 			pretty_print(pretty, row)
 

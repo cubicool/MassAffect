@@ -16,6 +16,10 @@ class Report(ABC, Loggable):
 		redis: RedisDatabase
 		pg: PostgresDatabase
 		agent: str | None = None
+		# TODO: Should the Request pass these in, or does the report need
+		# to figure it out itself?
+		# start: int | None = None
+		# end: int | None = None
 
 	@dataclass
 	class Response:
