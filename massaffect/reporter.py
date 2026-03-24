@@ -91,6 +91,7 @@ class Reporter(application.Application):
 
 		self.log.info("Connected to Redis/Postgres databases")
 
+	@property
 	def tasks(self):
 		return [
 			self.dispatcher.run(),

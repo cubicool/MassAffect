@@ -117,12 +117,21 @@ class Agent(application.Application):
 
 		self.log.debug(f"Created socket: {socket_name.replace(chr(0), '@')}")
 
+		for c in self.collectors:
+			await c.start()
+
+	@property
 	def tasks(self):
-		return [
+		t = [
 			self.dispatcher.run(),
 			self.server.serve_forever(),
 			self.handle_collector()
 		]
+
+		for c in self.collectors:
+			t.extend(c.tasks)
+
+		return t
 
 	async def shutdown(self):
 		if self.server:

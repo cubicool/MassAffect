@@ -7,33 +7,10 @@ from datetime import datetime, timezone
 # from typing import Optional
 
 from . import Collector
-
-class LogStateStore:
-	def __init__(self, path: Path):
-		self.path = path
-
-		self._state = {}
-		self._load()
-
-	def _load(self):
-		if self.path.exists():
-			self._state = json.loads(self.path.read_text())
-
-	def save(self):
-		self.path.parent.mkdir(parents=True, exist_ok=True)
-		self.path.write_text(json.dumps(self._state, indent=2))
-
-	def get(self, path: Path):
-		return self._state.get(str(path))
-
-	def update(self, path: Path, inode: int, offset: int):
-		self._state[str(path)] = {
-			"inode": inode,
-			"offset": offset,
-		}
+from ..state import FileStateStore
 
 class LogFileCursor:
-	def __init__(self, path: Path, store: LogStateStore):
+	def __init__(self, path: Path, store: FileStateStore):
 		self.path = path
 		self.store = store
 
@@ -44,7 +21,10 @@ class LogFileCursor:
 		st = self.path.stat()
 		inode = st.st_ino
 		size = st.st_size
-		saved = self.store.get(self.path)
+		# saved = self.store.get(self.path)
+		# key = f"{self.name}:{self.path.resolve()}"
+		key = f"log:{self.path.resolve()}"
+		saved = self.store.get(key)
 		offset = 0
 
 		if saved:
@@ -69,7 +49,12 @@ class LogFileCursor:
 
 			new_offset = f.tell()
 
-		self.store.update(self.path, inode, new_offset)
+		# self.store.update(self.path, inode, new_offset)
+
+		self.store.set(key, {
+			"inode": inode,
+			"offset": new_offset,
+		})
 
 		return lines
 
@@ -117,7 +102,7 @@ class NginxParser:
 	# Typical Nginx log looks like:
 	#
 	# 192.168.1.10 - - [01/Mar/2026:04:14:48 +0000] "GET /robots.txt HTTP/1.1" 200 2479 "-" "MassAffect/0.0 Test"
-	COMBINED_RE = re.compile(
+	NGINX_RE = re.compile(
 		r'^"?'                          # optional outer quote (some logs wrap entire line)
 		r'(?P<remote_addr>\S+) '        # $remote_addr (client IP)
 		r'\S+ \S+ '                     # $remote_user / ident (usually "-" "-")
@@ -131,9 +116,23 @@ class NginxParser:
 		r'"?$'                          # optional closing outer quote
 	)
 
+	# Some older OLS logs only provide the following:
+	OLS_RE = re.compile(
+		r'^"?'                         # optional outer quote
+		r'(?P<vhost>\S+) '             # %v
+		r'(?P<remote_addr>\S+) '       # %h
+		r'\S+ '                        # %l (ident, usually -)
+		r'\S+ '                        # %u (user, usually -)
+		r'\[(?P<time_local>[^\]]+)\] ' # %t
+		r'"(?P<request>[^"]*)" '       # "%r"
+		r'(?P<status>\d{3}) '          # %>s
+		r'(?P<body_bytes_sent>\S+)'    # %b
+		r'"?$'                         # optional closing quote
+	)
+
 	# def parse(self, line: str) -> Optional[dict]:
 	def parse(self, line: str) -> dict | None:
-		m = self.COMBINED_RE.match(line)
+		m = self.NGINX_RE.match(line)
 
 		if not m:
 			return None
@@ -169,19 +168,6 @@ class NginxParser:
 
 		return data
 
-OLS_ACCESS_RE = re.compile(
-	r'^"?'                         # optional outer quote
-	r'(?P<vhost>\S+) '             # %v
-	r'(?P<remote_addr>\S+) '       # %h
-	r'\S+ '                        # %l (ident, usually -)
-	r'\S+ '                        # %u (user, usually -)
-	r'\[(?P<time_local>[^\]]+)\] ' # %t
-	r'"(?P<request>[^"]*)" '       # "%r"
-	r'(?P<status>\d{3}) '          # %>s
-	r'(?P<body_bytes_sent>\S+)'    # %b
-	r'"?$'                         # optional closing quote
-)
-
 class LogCollector(Collector):
 	NAME = "logs"
 
@@ -196,7 +182,8 @@ class LogCollector(Collector):
 		]
 
 		self.parser = parser or RawParser()
-		self.state = LogStateStore(Path(state_file or ".ma_logstate.json"))
+		# self.state = LogStateStore(Path(state_file or ".ma_logstate.json"))
+		self.state = FileStateStore(Path(state_file or ".ma_logstate.json"))
 
 	@property
 	def name(self):

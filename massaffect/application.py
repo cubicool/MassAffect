@@ -9,7 +9,7 @@ class Application(Loggable):
 		self._tasks = []
 
 	async def startup(self):
-		"""Called to perform any initialization required before `tasks()`."""
+		"""Called to perform any initialization required before `tasks`."""
 
 		pass
 
@@ -18,6 +18,7 @@ class Application(Loggable):
 
 		pass
 
+	@property
 	def tasks(self):
 		"""
 		Return a list of of tasks to be used with `asyncio.create_task()`. These will form
@@ -39,7 +40,7 @@ class Application(Loggable):
 		await self.startup()
 
 		# start background tasks
-		for coro in self.tasks():
+		for coro in self.tasks:
 			self._tasks.append(asyncio.create_task(coro))
 
 		try:

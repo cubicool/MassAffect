@@ -113,7 +113,7 @@ class DebugPrettyTransport(Transport):
 			pretty = json.dumps(parsed, indent=2, sort_keys=True)
 
 		except Exception:
-			pretty = decoded  # fallback if not JSON
+			pretty = decoded
 
 		self.log.info(f"Would send: {pretty}")
 
