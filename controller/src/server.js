@@ -12,6 +12,22 @@ const config = cfg();
 // TODO: Setup Redis config!
 const redis = createClient();
 
+redis.on('error', (err) => {
+	console.error('Redis error:', err);
+});
+
+redis.on('connect', () => {
+	console.log('Redis connected');
+});
+
+redis.on('reconnecting', () => {
+	console.log('Redis reconnecting...');
+});
+
+redis.on('end', () => {
+	console.log('Redis connection closed');
+});
+
 await redis.connect();
 
 const pg = new Pool({...config.system.postgres});
@@ -27,7 +43,11 @@ app.set("trust proxy", true);
 app.set("view engine", "ejs");
 app.set("views", path.join(process.cwd(), "views"));
 
-app.use(express.json({ limit: "10mb" }));
+// app.use(express.json({ limit: "50mb" }));
+app.use(express.json({
+    verify: (req, res, buf) => { req.rawBody = buf; },
+	limit: "50mb"
+}));
 app.use(morgan("dev"));
 
 /* import monitorRoutes from "./routes/monitor.js";

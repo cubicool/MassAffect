@@ -4,7 +4,7 @@ import time
 import re
 import textwrap
 
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from contextlib import contextmanager
 
 from . import config
@@ -47,23 +47,104 @@ def sql_compact(sql: str) -> str:
 
 	return re.sub(r"\s+", " ", textwrap.dedent(sql).strip())
 
-def ago(*, seconds=0, minutes=0, hours=0, days=0):
-	return datetime.utcnow() - timedelta(
-		seconds=seconds,
-		minutes=minutes,
-		hours=hours,
-		days=days
-	)
+def to_epoch(t):
+	if t is None:
+		return None
+
+	if isinstance(t, (int, float)):
+		return int(t)
+
+	if isinstance(t, datetime):
+		return int(t.timestamp())
+
+	raise TypeError(f"Unsupported time type: {type(t)}")
+
+def ago(**kwargs):
+	return datetime.utcnow() - timedelta(**kwargs)
+
+def _parse_absolute(s: str):
+	try:
+		dt = datetime.fromisoformat(s)
+
+		if dt.tzinfo is None:
+			dt = dt.replace(tzinfo=timezone.utc)
+
+		return dt
+
+	except Exception:
+		raise ValueError(f"Invalid absolute time: {s!r}")
+
+def _parse_duration(s: str):
+	try:
+		value, unit = s.strip().lower().split()
+		value = int(value)
+
+	except Exception:
+		raise ValueError(f"Invalid duration: {s!r}")
+
+	if unit.startswith("second"):
+		return timedelta(seconds=value)
+
+	elif unit.startswith("minute"):
+		return timedelta(minutes=value)
+
+	elif unit.startswith("hour"):
+		return timedelta(hours=value)
+
+	elif unit.startswith("day"):
+		return timedelta(days=value)
+
+	raise ValueError(f"Invalid duration unit: {unit}")
+
+def parse_time(*, start: str, end: str | None, duration: str | None):
+	if not start:
+		raise ValueError("start is required")
+
+	if end and duration:
+		raise ValueError("cannot specify both end and duration")
+
+	if not end and not duration:
+		raise ValueError("must specify either end or duration")
+
+	start_dt = _parse_absolute(start)
+
+	if end:
+		end_dt = _parse_absolute(end)
+
+	else:
+		delta = _parse_duration(duration)
+		end_dt = start_dt + delta
+
+	return start_dt, end_dt
 
 def filter_agent(agent):
 	if not agent:
 		return None
+
 	return "agent = %s", [agent]
 
 def filter_collector(collector):
 	if not collector:
 		return None
+
 	return "collector = %s", [collector]
+
+def filter_time(*, start=None, end=None):
+	if not start and not end:
+		return None
+
+	clauses = []
+	args = []
+
+	if start:
+		clauses.append("ts >= %s")
+		args.append(to_epoch(start))
+
+	if end:
+		clauses.append("ts <= %s")
+		args.append(to_epoch(end))
+
+	return " AND ".join(clauses), args
 
 def build_where(*filters):
 	clauses = ["TRUE"]
@@ -83,80 +164,20 @@ class PostgresDatabase:
 		self._conn = pg_connect()
 		self._debug = debug
 
-	def _to_epoch(self, t):
-		if t is None:
-			return None
-
-		if isinstance(t, (int, float)):
-			return int(t)
-
-		if isinstance(t, datetime):
-			return int(t.timestamp())
-
-		raise TypeError(f"Unsupported time type: {type(t)}")
-
-	def _execute(self, sql, args, *, one=False):
+	def _execute(self, sql, args=(), *, one=False):
 		if self._debug:
-			# self.log.debug(f"SQL:\n{sql}\nARGS: {args}")
 			print(f"SQL: {sql_compact(sql)} | ARGS: {args}")
 
 		with self._conn.cursor() as cur:
-			cur.execute(sql, args or None)
+			cur.execute(sql, args)
 
-			if one:
-				return cur.fetchone()
-
-			else:
-				return cur.fetchall()
+			return cur.fetchone() if one else cur.fetchall()
 
 	def query(self, sql: str, *args):
-		return self._execeute(sql, args or None)
+		return self._execute(sql, args)
 
 	def query_one(self, sql: str, *args):
-		return self._execeute(sql, args or None)
-
-	def query_range(self, sql: str, *, start=None, end=None, args=()):
-		"""
-		Injects a time filter into a query using ts column.
-		Assumes query contains `{time_filter}` placeholder.
-
-		pg.query_range(\"\"\"
-			SELECT
-				agent,
-				COUNT(*) AS total
-			FROM events
-			WHERE {time_filter}
-			GROUP BY agent
-			ORDER BY total DESC
-		\"\"\", start=req.start, end=req.end)
-		"""
-
-		if "{time_filter}" not in sql:
-			raise ValueError("Query must include {time_filter}")
-
-		start_ts = self._to_epoch(start) or 0
-		end_ts = self._to_epoch(end) or int(time.time())
-
-		sql = sql.format(time_filter="ts BETWEEN %s AND %s")
-
-		return self._execute(sql, list(args) + [start_ts, end_ts])
-
-	def query_last(self, sql: str, seconds: int, args=()):
-		"""
-		Calls `query_range`, implicitly injecting the start/end time range
-		based on the value of `seconds`. For example, specifying a value of
-		3600 would only return queries for the last hour. Like `query_range`,
-		the `{time_filter}` format must appear in query string.
-		"""
-
-		now = int(time.time())
-
-		return self.query_range(
-			sql,
-			start=now - seconds,
-			end=now,
-			args=args
-		)
+		return self._execute(sql, args, one=True)
 
 class RedisDatabase:
 	def __init__(self):
@@ -177,3 +198,21 @@ class RedisDatabase:
 
 	def clear_report_state(self, agent, report):
 		self.r.delete(f"ma:agent:{agent}:report:{report}")
+
+__all__ = (
+    "pg_connect",
+    "pg_connect_async",
+    "pg_connection",
+    "pg_cursor",
+    "pg_execute",
+    "sql_compact",
+    "to_epoch",
+    "ago",
+    "parse_time",
+    "filter_agent",
+    "filter_collector",
+    "filter_time",
+    "build_where",
+    "PostgresDatabase",
+    "RedisDatabase",
+)

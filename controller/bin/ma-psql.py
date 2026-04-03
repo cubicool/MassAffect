@@ -15,21 +15,13 @@ ROOT = Path(__file__).resolve().parents[2]
 # Always append the "project root" (setup as `ROOT` here) so that the main Python code is found.
 sys.path.insert(0, str(ROOT))
 
-from massaffect.database import (
-	pg_execute,
-	pg_connect_async,
-	sql_compact,
-	ago,
-	filter_agent,
-	filter_collector,
-	build_where
-)
+from massaffect.database import *
 
 app = typer.Typer()
 
 ENVELOPE = typer.Option(
 	False,
-	"--envelope", "--env", "-e",
+	"--envelope", "--env", "-E",
 	help="Include the full MassAffect event envelope."
 )
 
@@ -49,6 +41,24 @@ COLLECTOR = typer.Option(
 	None,
 	"--collector", "-c",
 	help="Specify a single COLLECTOR to restrict queries to."
+)
+
+START = typer.Option(
+	...,
+	"-s", "--start",
+	help="Start time (ISO format)"
+)
+
+END = typer.Option(
+	None,
+	"-e", "--end",
+	help="End time (ISO format)"
+)
+
+DURATION = typer.Option(
+	None,
+	"-d", "--duration",
+	help="Duration (e.g. '1 hour')"
 )
 
 def pretty_print(pretty, data):
@@ -84,6 +94,33 @@ def query(
 		for row in envelope_rows(envelope, rows):
 			pretty_print(pretty, row)
 
+def _filter_args(
+	agent: str=AGENT,
+	collector: str=COLLECTOR,
+	start: str=START,
+	end: str=END,
+	duration: str=DURATION
+):
+	if end and duration:
+		raise typer.BadParameter("Cannot use both --end and --duration")
+
+	if not end and not duration:
+		raise typer.BadParameter("Must provide either --end or --duration")
+
+	start_dt, end_dt = parse_time(
+		start=start,
+		end=end,
+		duration=duration
+	)
+
+	where, args = build_where(
+		filter_time(start=start_dt, end=end_dt),
+		filter_agent(agent),
+		filter_collector(collector),
+	)
+
+	return where, args
+
 @app.command()
 def dump(
 	num: int=typer.Argument(
@@ -92,15 +129,15 @@ def dump(
 	),
 	agent: str=AGENT,
 	collector: str=COLLECTOR,
+	start: str=START,
+	end: str=END,
+	duration: str=DURATION,
 	envelope: bool=ENVELOPE,
 	pretty: bool=PRETTY
 ):
 	"""Dumps the specified number of newest `events` rows."""
 
-	where, args = build_where(
-		filter_agent(agent),
-		filter_collector(collector),
-	)
+	where, args = _filter_args(agent, collector, start, end, duration)
 
 	sql = f"""
 		SELECT agent, collector, ts, metrics
@@ -118,14 +155,28 @@ def dump(
 
 @app.command()
 def dumpall(
+	agent: str=AGENT,
+	collector: str=COLLECTOR,
+	start: str=START,
+	end: str=END,
+	duration: str=DURATION,
 	envelope: bool = ENVELOPE,
 	pretty: bool = PRETTY
 ):
-	"""Dumps the entire `events` table; use with caution."""
+	"""Dumps the complete range `events` in ASCENDING order."""
 
-	with pg_execute("SELECT agent, collector, ts, metrics FROM events") as rows:
+	where, args = _filter_args(agent, collector, start, end, duration)
+
+	sql = f"""
+		SELECT agent, collector, ts, metrics
+		FROM events
+		WHERE {where}
+		ORDER BY ts ASC
+	"""
+
+	with pg_execute(sql, *args) as rows:
 		for row in envelope_rows(True, rows):
-			pretty_print(False, row)
+			pretty_print(pretty, row)
 
 @app.command()
 def listen():
@@ -145,6 +196,34 @@ def listen():
 					print("Payload:", notify.payload)
 
 	asyncio.run(_listen())
+
+@app.command()
+def health():
+	"""Reports basic database row/disk sizes (NEEDS IMPROVEMENT)."""
+
+	with pg_execute("""
+		SELECT
+			inhrelid::regclass AS partition,
+			pg_size_pretty(pg_total_relation_size(inhrelid)) AS total_size,
+			COALESCE(s.n_live_tup, 0) AS est_rows
+		FROM pg_inherits
+		LEFT JOIN pg_stat_user_tables s ON s.relid = inhrelid
+		WHERE inhparent = 'events'::regclass
+		ORDER BY inhrelid::regclass::text;
+	""") as rows:
+		for row in rows:
+			pretty_print(True, row)
+
+	with pg_execute("""
+		SELECT
+			pg_size_pretty(SUM(pg_total_relation_size(inhrelid))) AS total_size,
+			SUM(COALESCE(s.n_live_tup, 0)) AS est_total_rows
+		FROM pg_inherits
+		LEFT JOIN pg_stat_user_tables s ON s.relid = inhrelid
+		WHERE inhparent = 'events'::regclass;
+	""") as rows:
+		for row in rows:
+			print(row)
 
 events_table = typer.Typer(help="Manage the events table and its partitions.")
 
@@ -258,127 +337,6 @@ def destroy():
 
 	with pg_execute("TRUNCATE TABLE events RESTART IDENTITY;") as res:
 		print(res.statusmessage)
-
-# TODO: Move these (and many more) into the Reporter subsystem, once I start it.
-"""
-# Busiest sites?
-ma_psql_ascii <<EOF
-SELECT
-  metrics->>'source' AS logfile,
-  count(*) AS hits
-FROM events
-GROUP BY logfile
-ORDER BY hits DESC;
-EOF
-
-# Rows with NO USER AGENT! Boo! :(
-function ma_psql_query_noua() {
-ma_psql <<EOF
-SELECT
-  metrics->>'remote_addr' AS ip,
-  count(*) AS hits
-FROM events
-WHERE metrics->>'http_user_agent' IS NULL
-   OR metrics->>'http_user_agent' = ''
-GROUP BY ip
-ORDER BY hits DESC;
-EOF
-}
-
-ma_psql_query_noua
-
-# echo "SELECT * FROM events WHERE metrics->>'path' = '/wp-login.php';" | ma_psql
-# Shows how many queries each IP made; insane!
-# echo "SELECT metrics->>'remote_addr', count(*) FROM events GROUP BY 1 ORDER BY 2 DESC;" | ma_psql
-
-# How long ago did the web queries occur?
-ma_psql <<EOF
-SELECT
-    NOW() - (metrics->>'time_local')::timestamptz AS age
-FROM events
-ORDER BY ts DESC
-LIMIT 10;
-EOF
-
-# Or, see who is hitting a particular route/path the most!
-ma_psql <<EOF
-SELECT
-  metrics->>'remote_addr' AS ip,
-  count(*) AS hits
-FROM events
-WHERE metrics->>'path' = '/wp-login.php'
-GROUP BY ip
-ORDER BY hits DESC;
-EOF
-
-# Grab all the 200 response codes...
-# ma_psql <<EOF
-# SELECT * FROM events WHERE metrics @> '{"status":200}';
-# EOF
-
-# Top user-agents...
-ma_psql <<EOF
-SELECT
-  metrics->>'http_user_agent' AS ua,
-  count(*) AS hits
-FROM events
-GROUP BY ua
-ORDER BY hits DESC
-LIMIT 20;
-EOF
-
-# 404 Scanners?
-ma_psql <<EOF
-SELECT
-  metrics->>'source' AS logfile,
-  count(*) AS hits
-FROM events
-WHERE metrics->>'status' = '404'
-GROUP BY logfile
-ORDER BY hits DESC;
-EOF
-
-# Analytics, baby! By hour...
-ma_psql <<EOF
-SELECT
-  date_trunc('hour', to_timestamp(ts)) AS hour,
-  count(*) AS events
-FROM events
-GROUP BY hour
-ORDER BY hour DESC;
-EOF
-
-# ...and analytics by MINUTE!
-ma_psql <<EOF
-SELECT
-  date_trunc('minute', to_timestamp(ts)) AS minute,
-  count(*) AS events
-FROM events
-GROUP BY minute
-ORDER BY minute DESC;
-EOF
-"""
-
-# TODO: Move something like this (but better!) into a full TUI, and expose it via another
-# command like `monitor`.
-"""
-URL = "https://ambaince.com/monitor/stream/omicron/system"
-
-async def stream():
-    async with aiohttp.ClientSession() as session:
-        async with session.get(URL) as resp:
-
-            async for line in resp.content:
-                line = line.decode().strip()
-
-                if line.startswith("data:"):
-                    payload = line[5:].strip()
-                    event = json.loads(payload)
-
-                    print(event)
-
-asyncio.run(stream())
-"""
 
 if __name__ == "__main__":
 	app()
